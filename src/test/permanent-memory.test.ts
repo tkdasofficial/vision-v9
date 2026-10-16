@@ -63,3 +63,11 @@ describe("scope isolation", () => {
     expect(includesPersonal(resolveScope(null, null))).toBe(true);
   });
 });
+
+describe("memory persistence failure", () => {
+  it("fails soft: save returns null and load returns [] when the database is unreachable", async () => {
+    const { savePermanentMemory, loadPermanentMemories } = await import("@/lib/ai/memory.server");
+    expect(await savePermanentMemory("u1", "my favorite color is teal")).toBeNull();
+    expect(await loadPermanentMemories("u1")).toEqual([]);
+  });
+});
