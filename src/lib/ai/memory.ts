@@ -103,7 +103,8 @@ export function detectMemoryCommand(text: string): MemoryCommand {
   if (!t) return { action: "none" };
   if (FORGET_ALL_RE.test(t)) return { action: "forget_all" };
   const del = t.match(DELETE_MEM_RE) ?? t.match(DELETE_MEM2_RE) ?? t.match(FORGET_RE);
-  if (del && del[1].trim().length >= 2 && del[1].length <= 300) return { action: "forget", query: del[1].trim() };
+  const conversational = /^(?:it|this|that|everything (?:above|before)|what i (?:said|asked)|my (?:last|previous)|the (?:previous|last|above))\b/i;
+  if (del && del[1].trim().length >= 2 && del[1].length <= 300 && !conversational.test(del[1].trim())) return { action: "forget", query: del[1].trim() };
   const up = t.match(UPDATE_RE);
   if (up && up[1].trim().length >= 2 && up[1].trim().length <= 500) return { action: "save", content: up[1].trim() };
   return detectMemoryRequest(t);
