@@ -1,86 +1,94 @@
-// The work states shown in chat. Each maps to a real backend operation — never simulated.
+// The worker statuses shown in chat. Each maps to a real backend operation — never simulated.
+// "THINKING" is always the first status of a task (the server emits it first); the rest appear only
+// when the matching operation actually runs.
 import type { JobStatus } from "@/lib/builder/statuses";
 import type { TaskStage } from "@/lib/ai/task-events";
 
-/** The only work-state labels a chat reply may show. */
-export const WORK_STATES = ["Thinking", "Working", "Reasoning", "Validating", "Creating", "Analyzing", "Searching"] as const;
+/** The only worker-status labels a chat reply may show. */
+export const WORK_STATES = [
+  "THINKING", "RETRIEVING", "REASONING", "SEARCHING", "READING", "ANALYZING", "PLANNING", "WRITING", "GENERATING",
+  "EXECUTING", "VALIDATING", "CORRECTING", "FINALIZING", "WAITING", "COMPLETED", "FAILED", "CANCELLED",
+] as const;
 export type WorkState = (typeof WORK_STATES)[number];
 
-/** Every streamed task stage, folded into one of the seven work states (null = never shown). */
+/** Every streamed task stage, folded into one worker status (null = never shown). */
 const STAGE_STATE: Record<TaskStage, WorkState | null> = {
-  thinking: "Thinking",
-  understanding_request: "Thinking",
-  analyzing_requirements: "Analyzing",
-  reasoning: "Reasoning",
-  searching_web: "Searching",
-  reading_sources: "Searching",
-  gathering_information: "Searching",
-  comparing_sources: "Analyzing",
-  fact_checking: "Validating",
-  extracting_information: "Analyzing",
-  processing: "Working",
-  analyzing_files: "Analyzing",
-  processing_data: "Analyzing",
-  calculating: "Working",
-  executing_code: "Working",
-  running_tests: "Validating",
-  generating_file: "Creating",
-  converting_file: "Creating",
-  reviewing_answer: "Validating",
-  verifying_accuracy: "Validating",
-  checking_completeness: "Validating",
-  validating_requirements: "Validating",
-  detecting_issues: "Validating",
-  fixing_issues: "Working",
-  retrying: "Working",
-  building_output: "Creating",
-  preparing_output: "Creating",
-  finalizing: "Creating",
+  thinking: "THINKING",
+  understanding_request: "THINKING",
+  retrieving_context: "RETRIEVING",
+  planning: "PLANNING",
+  writing: "WRITING",
+  analyzing_requirements: "ANALYZING",
+  reasoning: "REASONING",
+  searching_web: "SEARCHING",
+  reading_sources: "READING",
+  gathering_information: "RETRIEVING",
+  comparing_sources: "ANALYZING",
+  fact_checking: "VALIDATING",
+  extracting_information: "READING",
+  processing: "EXECUTING",
+  analyzing_files: "ANALYZING",
+  processing_data: "ANALYZING",
+  calculating: "EXECUTING",
+  executing_code: "EXECUTING",
+  running_tests: "VALIDATING",
+  generating_file: "GENERATING",
+  converting_file: "GENERATING",
+  reviewing_answer: "VALIDATING",
+  verifying_accuracy: "VALIDATING",
+  checking_completeness: "VALIDATING",
+  validating_requirements: "VALIDATING",
+  detecting_issues: "VALIDATING",
+  fixing_issues: "CORRECTING",
+  retrying: "CORRECTING",
+  building_output: "GENERATING",
+  preparing_output: "FINALIZING",
+  finalizing: "FINALIZING",
   switching_provider: null, // backend-only routing
-  failed: null,
-  cancelled: null,
+  failed: "FAILED",
+  cancelled: "CANCELLED",
 };
 
-/** Every job status, folded into one of the seven work states (absent = terminal, no work state). */
+/** Every job status, folded into one worker status (absent = terminal; the job card shows its own outcome). */
 const JOB_STATE: Partial<Record<JobStatus, WorkState>> = {
-  queued: "Thinking",
-  dispatched: "Working",
-  running: "Working",
-  thinking: "Thinking",
-  planning: "Analyzing",
-  analyzing: "Analyzing",
-  inspecting: "Analyzing",
-  extracting: "Analyzing",
-  scanning: "Analyzing",
-  indexing: "Working",
-  generating: "Creating",
-  writing_files: "Creating",
-  setting_up: "Working",
-  validating: "Validating",
-  running_checks: "Validating",
-  debugging: "Working",
-  fixing: "Working",
-  compressing: "Creating",
-  packaging: "Creating",
-  verifying: "Validating",
-  uploading: "Creating",
-  downloading: "Working",
-  processing: "Working",
-  saving: "Creating",
-  retrying: "Working",
-  writing_content: "Creating",
-  creating_document: "Creating",
-  converting_file: "Creating",
-  validating_output: "Validating",
-  saving_file: "Creating",
+  queued: "WAITING",
+  dispatched: "WAITING",
+  running: "EXECUTING",
+  thinking: "THINKING",
+  planning: "PLANNING",
+  analyzing: "ANALYZING",
+  inspecting: "READING",
+  extracting: "READING",
+  scanning: "ANALYZING",
+  indexing: "EXECUTING",
+  generating: "GENERATING",
+  writing_files: "WRITING",
+  setting_up: "EXECUTING",
+  validating: "VALIDATING",
+  running_checks: "VALIDATING",
+  debugging: "CORRECTING",
+  fixing: "CORRECTING",
+  compressing: "GENERATING",
+  packaging: "GENERATING",
+  verifying: "VALIDATING",
+  uploading: "FINALIZING",
+  downloading: "RETRIEVING",
+  processing: "EXECUTING",
+  saving: "FINALIZING",
+  retrying: "CORRECTING",
+  writing_content: "WRITING",
+  creating_document: "GENERATING",
+  converting_file: "GENERATING",
+  validating_output: "VALIDATING",
+  saving_file: "FINALIZING",
 };
 
-/** Work state for a streamed task stage; null when it must not appear in the UI. */
+/** Worker status for a streamed task stage; null when it must not appear in the UI. */
 export function workStateForStage(stage: TaskStage): WorkState | null {
   return STAGE_STATE[stage] ?? null;
 }
 
-/** Work state for a backend job status; null for terminal states (the result is shown instead). */
+/** Worker status for a backend job status. */
 export function workStateForJob(status: JobStatus): WorkState | null {
   return JOB_STATE[status] ?? null;
 }

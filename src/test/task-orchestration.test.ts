@@ -55,7 +55,7 @@ describe("render scheduler", () => {
 describe("status catalogue", () => {
   it("keeps answer completion separate from task failures", () => {
     const labels = Object.values(STAGE_LABELS);
-    for (const bad of ["Completed", "Writing", "Splash", "Accuracy", "Rendering Response"]) expect(labels).not.toContain(bad);
+    for (const bad of ["Completed", "Splash", "Accuracy", "Rendering Response"]) expect(labels).not.toContain(bad);
     expect(parseTaskEvent({ taskId: "t", seq: 1, stage: "completed" })).toBeNull();
   });
 });

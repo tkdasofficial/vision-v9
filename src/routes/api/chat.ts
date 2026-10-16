@@ -114,12 +114,15 @@ export const Route = createFileRoute("/api/chat")({
           const brief = taskBrief(lastText);
           system += planAddendum(deepAnalysis) + requirementsPrompt(buildRequirements(deepAnalysis, lastText)) + (brief ? `\n\n${brief}` : "");
         }
+        // Set when an earlier message/output was actually retrieved for this request (drives the RETRIEVING status).
+        let retrieved: string | null = null;
         // Conversation context: resolve references ("your first response") against the full history sent for
         // this chat (not only the budgeted window) and attach the exact original content.
         {
           const { resolveReference, sourceBlock, workingContext } = await import("@/lib/ai/references");
           const fullHist = (Array.isArray(body?.messages) ? body.messages.slice(-200, -1) : []).map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((p: any) => p.type === "text").map((p: any) => String(p.text ?? "")).join("\n") : "" }));
           const ref = resolveReference(lastText, fullHist as any);
+          retrieved = ref.kind === "found" ? `Using ${ref.label}` : null;
           if (ref.kind === "found") system += `\n\n${sourceBlock(ref)}`;
           else if (ref.kind === "missing") system += `\n\nThe user referred to "${ref.label}" but it does not exist: ${ref.reason} Say so; do not invent it.`;
           else if (ref.kind === "ambiguous") system += `\n\nThe user's reference "${ref.label}" is ambiguous. Ask exactly this one question and nothing else: ${ref.question}`;
@@ -226,6 +229,7 @@ export const Route = createFileRoute("/api/chat")({
             const ping = setInterval(() => send(": working\n\n"), 8000);
             try {
               emit("thinking");
+              if (retrieved) emit("retrieving_context", retrieved.slice(0, 120));
               const analysis = analyzeRequest(lastText);
               emit(lastHasMedia ? "analyzing_files" : analysis.items || analysis.complex ? "analyzing_requirements" : "understanding_request", analysis.items ? `${analysis.items.count} ${analysis.items.noun}${analysis.items.count === 1 ? "" : "s"} requested` : undefined);
               await runSearch((stage, msg) => emit(stage, msg));
@@ -245,7 +249,7 @@ export const Route = createFileRoute("/api/chat")({
                 
                 if (workSignal.aborted) { emit("cancelled"); return; }
                 if (attempt > 0) emit("retrying", "Correcting the previous answer");
-                emit("reasoning");
+                emit(attempt > 0 ? "fixing_issues" : "writing");
                 const fix = best ? [...msgs, { role: "assistant", content: best.text }, { role: "user", content: `Your previous answer failed these automatic checks:\n${best.list.slice(0, 12).map((i) => `- ${i.message}`).join("\n")}\nFix ONLY these problems, keep every compliant part unchanged, and return the complete corrected answer with no commentary about the fix.` }] : msgs;
                 const r = await orchestrateText(fix, { maxTokens: deep ? 8192 : 4096, deep, signal: workSignal, models, taskId,
                   onEvent: (event) => emit(event.stage, event.model) });
