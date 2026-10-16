@@ -38,3 +38,24 @@ import { workStateLabel } from "@/lib/ai/work-status";
 describe("status display", () => {
   it("shows sentence case", () => { expect(workStateLabel("THINKING")).toBe("Thinking"); expect(workStateLabel("REASONING")).toBe("Reasoning"); });
 });
+
+import { activitySummary } from "@/lib/ai/work-status";
+
+describe("activitySummary (Task 4 activity history)", () => {
+  it("keeps only stages that really ran, in display form", () => {
+    const a = activitySummary(["thinking", "searching_web", "writing", "finalizing"] as any, 42.4);
+    expect(a).toEqual({ seconds: 42, steps: ["Thinking", "Searching", "Writing", "Finalizing"] });
+  });
+  it("merges consecutive duplicates and drops hidden stages", () => {
+    const a = activitySummary(["thinking", "thinking", "switching_provider", "validating_requirements", "reviewing_answer"] as any, 5);
+    expect(a!.steps).toEqual(["Thinking", "Validating"]);
+  });
+  it("returns null when nothing displayable ran — never fabricates activity", () => {
+    expect(activitySummary(["switching_provider"] as any, 3)).toBeNull();
+    expect(activitySummary([], 3)).toBeNull();
+  });
+  it("uses the real measured seconds, never negative", () => {
+    expect(activitySummary(["thinking"] as any, -2)!.seconds).toBe(0);
+    expect(activitySummary(["thinking"] as any, 7.6)!.seconds).toBe(8);
+  });
+});
