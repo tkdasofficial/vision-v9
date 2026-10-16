@@ -19,7 +19,7 @@ import ChatMessage from "@/components/chat-message";
 import EmptyState from "@/components/empty-state";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "@/components/typing-indicator";
 import { applyTaskEvent, type TaskState } from "@/lib/ai/task-events";
-import { workStateForStage, workStateLabel, activitySummary } from "@/lib/ai/work-status";
+import { workStateForStage, workStateLabel, activitySummary, deepActivitySummary } from "@/lib/ai/work-status";
 import { revealPlan } from "@/lib/ai/render-scheduler";
 import { getCategory } from "@/lib/file-converter";
 import { runJob, listJobs, fetchJob, cancelJob } from "@/lib/builder/jobs-client";
@@ -465,9 +465,11 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const activity = taskRef?.history?.length
         ? activitySummary(taskRef.history, (Date.now() - taskStart) / 1000) ?? undefined
         : undefined;
+      const deepSeconds = Math.max(1, Math.round((Date.now() - deepStart) / 1000));
+      const deepActivity = deep && deepHist.length ? deepActivitySummary(deepHist, deepSeconds) ?? undefined : undefined;
       let reply: ChatMessageType = { id: replyId, role: "assistant", content: replyText, timestamp: new Date(), toolId: tool?.id, executionMode: deep ? "deep" : meta.executionMode,
-        ...(activity ? { activity } : {}),
-        ...(deep ? { deep: { stage: finalText && lastDeep.stage !== "failed" ? "done" : "failed", seconds: Math.max(1, Math.round((Date.now() - deepStart) / 1000)) } as const } : {}) };
+        ...(activity || deepActivity ? { activity: deepActivity ?? activity } : {}),
+        ...(deep ? { deep: { stage: finalText && lastDeep.stage !== "failed" ? "done" : "failed", seconds: deepSeconds } as const } : {}) };
       // Research reports become a saved document shown as a compact card (saved once per reply).
       if (meta.output === "document" && finalText) {
         try {

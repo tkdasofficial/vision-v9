@@ -117,3 +117,33 @@ export function activitySummary(stages: TaskStage[], seconds: number): ActivityS
   if (!steps.length) return null;
   return { seconds: Math.max(0, Math.round(seconds)), steps };
 }
+
+// Deep Thinking stages use their own names; map them to the same worker-status labels.
+const DEEP_STAGE_STATE: Record<string, WorkState | null> = {
+  thinking: "THINKING",
+  analyzing: "ANALYZING",
+  planning: "PLANNING",
+  researching: "SEARCHING",
+  working: "EXECUTING",
+  generating: "GENERATING",
+  verifying: "VALIDATING",
+  correcting: "CORRECTING",
+  validating: "VALIDATING",
+  crafting: "WRITING",
+  retrying: "CORRECTING",
+  switching_provider: null,
+  done: "COMPLETED",
+  failed: "FAILED",
+};
+
+/** Same folding as activitySummary, for Deep Thinking replies' real stage history. */
+export function deepActivitySummary(stages: string[], seconds: number): ActivitySummary | null {
+  const steps: string[] = [];
+  for (const stage of stages) {
+    const label = workStateLabel(DEEP_STAGE_STATE[stage]);
+    if (!label || label === "Completed") continue;
+    if (steps[steps.length - 1] !== label) steps.push(label);
+  }
+  if (!steps.length) return null;
+  return { seconds: Math.max(0, Math.round(seconds)), steps };
+}
