@@ -32,7 +32,7 @@ describe("delivery succeeds only for the owner with an intact file", () => {
     expect(res.headers.get("Content-Type")).toBe("application/pdf");
     expect(res.headers.get("Content-Disposition")).toContain("story.pdf");
     expect(res.headers.get("X-Checksum-SHA256")).toBe(record.sha256);
-    expect(new Uint8Array(await res.arrayBuffer())).toEqual(bytes);
+    expect(Buffer.from(await res.arrayBuffer()).equals(Buffer.from(bytes))).toBe(true);
   });
   it("rejects signed-out callers (401)", async () => {
     const { record, bytes } = await makeRecord();
