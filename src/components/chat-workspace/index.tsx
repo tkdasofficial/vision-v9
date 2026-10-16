@@ -151,17 +151,31 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     if (last.role !== "user" || !sentAt || Date.now() - sentAt > 15 * 60_000) return;
     let stop = false;
     setIsTyping(true);
+    const finish = () => { stop = true; setIsTyping(false); setTaskState(null); };
     const tick = async () => {
       if (stop) return;
       const { data } = await supabase.from("chat_messages").select("*").eq("session_id", chatId).eq("role", "assistant").gt("created_at", new Date(sentAt - 1000).toISOString()).order("created_at", { ascending: true }).limit(1);
       const row: any = data?.[0];
       if (row && !stop) {
-        stop = true; setIsTyping(false);
+        finish();
         setMessages((prev) => prev.some((m) => m.id === row.id) ? prev : [...prev, { id: row.id, role: "assistant", content: row.content || "", timestamp: new Date(row.created_at), toolId: row.metadata?.toolId }]);
         setNewMessageIds((prev) => new Set(prev).add(row.id));
         return;
       }
-      if (Date.now() - sentAt > 15 * 60_000) { stop = true; setIsTyping(false); return; }
+      // Reconnect to the server's record of this generation: live status while it runs, a clear end if it stopped.
+      const gen = await fetchGeneration(chatId).catch(() => null);
+      if (stop) return;
+      if (gen && gen.startedAt >= sentAt - 60_000) {
+        if (gen.status === "running") setTaskState(generationTaskState(gen));
+        else if (gen.status !== "completed") {
+          const note = endedWithoutAnswer(gen);
+          finish();
+          if (note) setMessages((prev) => prev.some((m) => m.id === gen.id) ? prev : [...prev, { id: gen.id, role: "assistant", content: note, timestamp: new Date(gen.updatedAt) }]);
+          return;
+        }
+        // completed: the saved answer row appears on the next tick
+      }
+      if (Date.now() - sentAt > 15 * 60_000) { finish(); return; }
       timer = window.setTimeout(tick, 4000);
     };
     let timer = window.setTimeout(tick, 500);
