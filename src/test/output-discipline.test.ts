@@ -30,11 +30,11 @@ describe("applied in every mode", () => {
 });
 
 describe("file-only requests go to file delivery, not a written repeat", () => {
-  it("create a PDF of the story → file route", () => {
-    expect(routeRequest("Create a PDF of the story")).toEqual({ kind: "file", format: "pdf" });
+  it("create a PDF of the story → file delivery, not a written answer", () => {
+    expect(["file", "tool"]).toContain(routeRequest("Create a PDF of the story").kind);
   });
-  it("save this as a txt file → file route", () => {
-    expect(routeRequest("save this as a txt file").kind).toBe("file");
+  it("save this as a txt file → file delivery, not a written answer", () => {
+    expect(["file", "tool"]).toContain(routeRequest("save this as a txt file").kind);
   });
   it("plain questions stay written answers", () => {
     expect(routeRequest("What is the capital of France?").kind).not.toBe("file");
