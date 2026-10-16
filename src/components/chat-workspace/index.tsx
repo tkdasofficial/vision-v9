@@ -19,7 +19,7 @@ import ChatMessage from "@/components/chat-message";
 import EmptyState from "@/components/empty-state";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "@/components/typing-indicator";
 import { applyTaskEvent, type TaskState } from "@/lib/ai/task-events";
-import { workStateForStage, workStateLabel } from "@/lib/ai/work-status";
+import { workStateForStage, workStateLabel, activitySummary } from "@/lib/ai/work-status";
 import { revealPlan } from "@/lib/ai/render-scheduler";
 import { getCategory } from "@/lib/file-converter";
 import { runJob, listJobs, fetchJob, cancelJob } from "@/lib/builder/jobs-client";
@@ -439,6 +439,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       }, 1400) : undefined;
       const stopDeepTimers = () => { if (deepShow) clearTimeout(deepShow); if (deepTicker) clearInterval(deepTicker); };
       let taskRef: TaskState | null = null;
+      const taskStart = Date.now();
       let meta: { executionMode: string; output: string } = { executionMode: "default", output: "chat" };
       const ctrl = new AbortController();
       abortRef.current = ctrl; setStreaming(true);
@@ -459,7 +460,12 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         onStatus: (st, detail) => { const ds = STATUS_MAP[st]; if (!deep || !ds) return; deepReal = true; lastDeep = { stage: ds, detail }; setMessages((prev) => prev.some((m) => m.id === replyId) ? prev.map((m) => (m.id === replyId ? { ...m, deep: { stage: ds, detail } } : m)) : prev); } }).finally(() => { stopDeepTimers(); if (abortRef.current === ctrl) abortRef.current = null; setStreaming(false); });
       const stopped = ctrl.signal.aborted;
       const replyText = finalText || (stopped ? "Stopped." : "I couldn't come up with an answer. Please try again.");
+      // Persistent activity record: real elapsed time and the operations that actually ran (never simulated).
+      const activity = taskRef?.history?.length
+        ? activitySummary(taskRef.history, (Date.now() - taskStart) / 1000) ?? undefined
+        : undefined;
       let reply: ChatMessageType = { id: replyId, role: "assistant", content: replyText, timestamp: new Date(), toolId: tool?.id, executionMode: deep ? "deep" : meta.executionMode,
+        ...(activity ? { activity } : {}),
         ...(deep ? { deep: { stage: finalText && lastDeep.stage !== "failed" ? "done" : "failed", seconds: Math.max(1, Math.round((Date.now() - deepStart) / 1000)) } as const } : {}) };
       // Research reports become a saved document shown as a compact card (saved once per reply).
       if (meta.output === "document" && finalText) {
