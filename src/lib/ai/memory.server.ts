@@ -1,6 +1,6 @@
 // Server-only: one D1 round trip for prefs + the chat's project and memory setting (owner-checked).
 import { d1 } from "@/lib/cloud/d1.server";
-import { resolveScope, projectContextBlock, type MemoryScope } from "./memory";
+import { resolveScope, projectContextBlock, type MemoryScope, type PermanentMemory } from "./memory";
 
 export async function loadChatContext(userId: string, chatId: string | undefined): Promise<{ prefsRaw: unknown; projectId: string | null; scope: MemoryScope }> {
   const cid = chatId && /^[\w-]{1,64}$/.test(chatId) ? chatId : "";
