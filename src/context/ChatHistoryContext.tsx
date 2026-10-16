@@ -102,6 +102,7 @@ function buildMetadata(msg: ChatMessage): Record<string, any> {
   if (msg.document) meta.document = msg.document;
   if (msg.executionMode) meta.executionMode = msg.executionMode;
   if (msg.deep?.stage === "done") meta.deep = { stage: "done", seconds: msg.deep.seconds };
+  if (msg.activity?.steps?.length) meta.activity = { seconds: msg.activity.seconds, steps: msg.activity.steps };
   if (msg.pasted?.length) meta.pasted = msg.pasted;
   if (msg.typed !== undefined) meta.typed = msg.typed;
   if (msg.attachments?.length) meta.attachments = msg.attachments;
@@ -122,6 +123,7 @@ function rowToMessage(row: any): ChatMessage {
     document: meta.document,
     executionMode: meta.executionMode,
     deep: meta.deep ? { stage: "done", seconds: meta.deep.seconds } : undefined,
+    activity: Array.isArray(meta.activity?.steps) && meta.activity.steps.length ? { seconds: Number(meta.activity.seconds) || 0, steps: meta.activity.steps.map(String) } : undefined,
     pasted: meta.pasted,
     typed: meta.typed,
     attachments: meta.attachments,
