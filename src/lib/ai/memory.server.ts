@@ -1,5 +1,13 @@
 // Server-only: one D1 round trip for prefs + the chat's project and memory setting (owner-checked).
-import { d1 } from "@/lib/cloud/d1.server";
+import { d1 as rawD1 } from "@/lib/cloud/d1.server";
+
+/** Bound every memory query: a hung D1 call must never hold up chat generation. */
+export const MEMORY_DB_TIMEOUT_MS = 5000;
+function d1(sql: string, params: unknown[] = []): Promise<any[]> {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, rej) => { t = setTimeout(() => rej(new Error("memory db timeout")), MEMORY_DB_TIMEOUT_MS); });
+  return Promise.race([rawD1(sql, params), timeout]).finally(() => clearTimeout(t));
+}
 import { resolveScope, rankProjectRows, projectRowsBlock, planMemoryWrite, type MemoryScope, type PermanentMemory, type WritePlan } from "./memory";
 
 export async function loadChatContext(userId: string, chatId: string | undefined): Promise<{ prefsRaw: unknown; projectId: string | null; scope: MemoryScope; owned: boolean }> {
@@ -39,6 +47,11 @@ const ensureMem = () => (memReady ??= d1(
 ).then(() => d1("ALTER TABLE user_memories ADD COLUMN updated_at INTEGER").catch(() => undefined))
  .then(() => d1("ALTER TABLE user_memories ADD COLUMN source TEXT DEFAULT 'explicit'").catch(() => undefined))
  .then(() => d1("CREATE INDEX IF NOT EXISTS idx_user_memories_user ON user_memories(user_id, created_at)")).catch((e) => { memReady = null; throw e; }));
+
+/** Like loadPermanentMemories but null on failure, so callers can tell "none stored" from "couldn't read". */
+export async function tryLoadPermanentMemories(userId: string): Promise<PermanentMemory[] | null> {
+  try { await ensureMem(); return await loadPermanentMemoriesStrict(userId); } catch { return null; }
+}
 
 /** Loads the user's permanent memories, newest first. Returns [] on any failure. */
 export async function loadPermanentMemories(userId: string): Promise<PermanentMemory[]> {
