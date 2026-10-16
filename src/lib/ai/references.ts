@@ -51,6 +51,18 @@ export function resolveReference(request: string, history: ConvMsg[]): Resolutio
   }
   // "what you said above", "continue from where we stopped", "translate that" → latest answer.
   if (/\b(previous|last|above|prior)\s+(?:answer|response|reply|one)\b|\bwhere (?:we|you) (?:stopped|left off)\b|\bwhat you (?:just )?(?:said|wrote)\b/.test(t)) return pick(assistants, -1, "assistant", "previous answer");
+  // "make a PDF of the story", "export this poem", "convert it to PDF" → the most recent matching content in this chat.
+  if (isContentAction(t) && assistants.length) {
+    const nm = /\b(?:the|that|this|your|above)\s+(story|poem|essay|article|script|letter|report|summary|answer|response|content|text)\b/.exec(t);
+    if (nm) {
+      const noun = nm[1];
+      const generic = /answer|response|content|text/.test(noun);
+      const hit = generic ? null : [...assistants].reverse().find((a) => new RegExp(`\\b${noun}`, "i").test(a.text) || (noun === "story" && a.text.length > 400));
+      if (hit) return { kind: "found", role: "assistant", ordinal: assistants.indexOf(hit) + 1, index: hit.i, id: hit.m.id, content: hit.text, label: nm[0] };
+      return pick(assistants, -1, "assistant", nm[0]);
+    }
+    if (/\b(?:of|from|into|convert|export|download)\s+(?:it|this|that)\b|\b(?:it|this|that)\s+(?:as|into|to)\s+(?:a\s+)?(?:pdf|docx?|word|txt|file)\b/.test(t)) return pick(assistants, -1, "assistant", "previous answer");
+  }
   return { kind: "none" };
 }
 
