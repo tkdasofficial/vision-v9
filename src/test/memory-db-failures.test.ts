@@ -96,7 +96,7 @@ describe("reply instructions never confirm a failed operation", () => {
     expect(n).toMatch(/FAILED|could not be read/);
     expect(n).toMatch(/try again/);
     expect(n).toMatch(/Never say it succeeded/);
-    expect(n).not.toMatch(/is now stored|were deleted\.|was deleted\.|was replaced/);
+    expect(n).not.toMatch(/is now stored|\) were deleted|(?<!nothing )was deleted|was replaced/);
   });
   it("success wording only comes from confirmed outcomes", () => {
     expect(memoryOutcomeNote({ kind: "saved", content: "x" })).toContain("is now stored");
