@@ -33,3 +33,8 @@ describe("chat worker statuses", () => {
     for (const status of terminal) expect(workStateForJob(status)).toBeNull();
   });
 });
+
+import { workStateLabel } from "@/lib/ai/work-status";
+describe("status display", () => {
+  it("shows sentence case", () => { expect(workStateLabel("THINKING")).toBe("Thinking"); expect(workStateLabel("REASONING")).toBe("Reasoning"); });
+});

@@ -92,3 +92,8 @@ export function workStateForStage(stage: TaskStage): WorkState | null {
 export function workStateForJob(status: JobStatus): WorkState | null {
   return JOB_STATE[status] ?? null;
 }
+
+/** Display form: first letter capital, rest lowercase ("THINKING" → "Thinking"). */
+export function workStateLabel(state: WorkState | null | undefined): string | undefined {
+  return state ? state.charAt(0) + state.slice(1).toLowerCase() : undefined;
+}

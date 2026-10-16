@@ -11,7 +11,7 @@ import { downloadFile } from "@/lib/download";
 import { toast } from "sonner";
 import TaskStatus from "@/components/task-status";
 import { visibleJobStatus } from "@/lib/status-visibility";
-import { workStateForJob } from "@/lib/ai/work-status";
+import { workStateForJob, workStateLabel } from "@/lib/ai/work-status";
 
 /** Downloads through an authenticated fetch so the session always reaches the server. */
 function ArtifactButton({ id, name, size }: { id: string; name: string; size?: string }) {
@@ -69,7 +69,7 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
   const [cancelling, setCancelling] = useState(false);
   const running = !isTerminal(job.status);
   const visible = visibleJobStatus(job);
-  const stageLabel = workStateForJob(visible.status) ?? JOB_STATUSES[visible.status];
+  const stageLabel = workStateLabel(workStateForJob(visible.status)) ?? JOB_STATUSES[visible.status];
   const statusLine = <TaskStatus label={stageLabel} startedAt={job.createdAt} endedAt={running ? undefined : job.updatedAt} failed={job.status === "failed" || job.status === "timed_out"} cancelled={job.status === "cancelled"} />;
   const r = job.result ?? {};
   // Finished code shows only the clean code canvas — no title, badge, icons or menu.

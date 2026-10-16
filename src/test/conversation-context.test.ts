@@ -82,3 +82,14 @@ describe("Accuracy validation", () => {
     expect(checkContinuity(t).map((i) => i.code)).toEqual(["continuity"]);
   });
 });
+
+describe("Implicit story reference", () => {
+  it("'create PDF of the story' uses the story already in the chat", () => {
+    const r = resolveReference("Create PDF of the story", chat);
+    expect(r.kind === "found" && r.id).toBe("a2");
+  });
+  it("'convert it to PDF' uses the latest answer", () => {
+    const r = resolveReference("convert it to pdf", chat);
+    expect(r.kind === "found" && r.id).toBe("a2");
+  });
+});
