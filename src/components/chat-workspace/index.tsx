@@ -28,7 +28,8 @@ import type { ChatMode } from "@/lib/ai/modes";
 import { saveDocumentFn } from "@/lib/cloud/documents.functions";
 import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
 import { supabase } from "@/lib/cloud/client";
-import { streamChat } from "@/lib/cloud/chat-stream";
+import { streamChat, fetchGeneration } from "@/lib/cloud/chat-stream";
+import { generationTaskState, endedWithoutAnswer } from "@/lib/ai/generation-state";
 import { useAuth } from "@/context/AuthContext";
 import { readCachedPrefs } from "@/lib/settings";
 import { adoptDraftMode, browserStore, loadChatMode, saveChatMode } from "@/lib/chat-mode-store";
@@ -151,17 +152,31 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     if (last.role !== "user" || !sentAt || Date.now() - sentAt > 15 * 60_000) return;
     let stop = false;
     setIsTyping(true);
+    const finish = () => { stop = true; setIsTyping(false); setTaskState(null); };
     const tick = async () => {
       if (stop) return;
       const { data } = await supabase.from("chat_messages").select("*").eq("session_id", chatId).eq("role", "assistant").gt("created_at", new Date(sentAt - 1000).toISOString()).order("created_at", { ascending: true }).limit(1);
       const row: any = data?.[0];
       if (row && !stop) {
-        stop = true; setIsTyping(false);
+        finish();
         setMessages((prev) => prev.some((m) => m.id === row.id) ? prev : [...prev, { id: row.id, role: "assistant", content: row.content || "", timestamp: new Date(row.created_at), toolId: row.metadata?.toolId }]);
         setNewMessageIds((prev) => new Set(prev).add(row.id));
         return;
       }
-      if (Date.now() - sentAt > 15 * 60_000) { stop = true; setIsTyping(false); return; }
+      // Reconnect to the server's record of this generation: live status while it runs, a clear end if it stopped.
+      const gen = await fetchGeneration(chatId).catch(() => null);
+      if (stop) return;
+      if (gen && gen.startedAt >= sentAt - 60_000) {
+        if (gen.status === "running") setTaskState(generationTaskState(gen));
+        else if (gen.status !== "completed") {
+          const note = endedWithoutAnswer(gen);
+          finish();
+          if (note) setMessages((prev) => prev.some((m) => m.id === gen.id) ? prev : [...prev, { id: gen.id, role: "assistant", content: note, timestamp: new Date(gen.updatedAt) }]);
+          return;
+        }
+        // completed: the saved answer row appears on the next tick
+      }
+      if (Date.now() - sentAt > 15 * 60_000) { finish(); return; }
       timer = window.setTimeout(tick, 4000);
     };
     let timer = window.setTimeout(tick, 500);
@@ -456,7 +471,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         setMessages((prev) => prev.some((m) => m.id === replyId)
           ? prev.map((m) => (m.id === replyId ? { ...m, content: visible } : m))
           : [...prev, { id: replyId, role: "assistant", content: visible, timestamp: new Date(), toolId: tool?.id }]);
-      }, tool?.id, { mode: taskMode, webSearch: forceSearch, onMeta: (m) => { meta = m; }, signal: ctrl.signal, requestId: replyId, conversationId: chatId ?? undefined,
+      }, tool?.id, { mode: taskMode, webSearch: forceSearch, onMeta: (m) => { meta = m; }, signal: ctrl.signal, requestId: replyId, conversationId: sessionId ?? undefined,
         onTask: (ev) => { taskRef = applyTaskEvent(taskRef, ev, replyId); setTaskState(taskRef); },
         onStatus: (st, detail) => { const ds = STATUS_MAP[st]; if (!deep || !ds) return; deepReal = true; lastDeep = { stage: ds, detail }; deepHist.push(ds); setMessages((prev) => prev.some((m) => m.id === replyId) ? prev.map((m) => (m.id === replyId ? { ...m, deep: { stage: ds, detail } } : m)) : prev); } }).finally(() => { stopDeepTimers(); if (abortRef.current === ctrl) abortRef.current = null; setStreaming(false); });
       const stopped = ctrl.signal.aborted;

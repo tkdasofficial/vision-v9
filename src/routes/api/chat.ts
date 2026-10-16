@@ -184,19 +184,25 @@ export const Route = createFileRoute("/api/chat")({
           const conversationId = typeof body?.conversationId === "string" ? body.conversationId.slice(0, 64) : undefined;
           const stream = new ReadableStream<Uint8Array>({
             start(ctrl) { const run = (async () => {
-              const ping = setInterval(() => { try { ctrl.enqueue(sseComment("thinking")); } catch { /* closed */ } }, 8000);
-              ctrl.enqueue(sseComment("thinking"));
+              // Writes after the browser left must not abort the work (the answer is saved server-side).
+              const put = (b: Uint8Array) => { try { ctrl.enqueue(b); } catch { /* closed */ } };
+              const { trackGeneration } = await import("@/lib/ai/generation-store.server");
+              const gen = chatId ? trackGeneration(caller.user.id, chatId, requestId) : null;
+              const DEEP_STAGE: Record<string, any> = { analyzing: "analyzing_requirements", planning: "planning", generating: "writing", verifying: "verifying_accuracy", correcting: "fixing_issues", validating: "validating_requirements", assembling: "building_output", retrying: "retrying" };
+              let outcome: { status: "completed" | "failed" | "cancelled"; error?: string } = { status: "failed", error: "No result was generated" };
+              const ping = setInterval(() => put(sseComment("thinking")), 8000);
+              put(sseComment("thinking"));
               try {
                 const t0 = Date.now();
-                const progress = (stage: string, detail?: string) => { try { ctrl.enqueue(sseStatus(stage, detail)); } catch { /* closed */ } };
+                const progress = (stage: string, detail?: string) => { if (DEEP_STAGE[stage]) gen?.stage(DEEP_STAGE[stage], detail); put(sseStatus(stage, detail)); };
                 providerProgress = progress;
                 const { shouldDecompose, runDeepEngine } = await import("@/lib/ai/deep/engine");
                 if (shouldDecompose(deepAnalysis)) {
                   const { d1ExecutionStore } = await import("@/lib/ai/deep/store.server");
                   const r = await runDeepEngine({ request: lastText, requestId, conversationId, analysis: deepAnalysis, baseSystem, call: call as any, reviewCall: reviewCall as any, store: d1ExecutionStore(caller.user.id), limits: { maxRetries: (await import("@/lib/ai/limits")).AI_LIMITS.outerRetries }, progress, log: (e) => console.log("[chat:deep:engine]", JSON.stringify({ user: caller.user.id, requestId, ...e })) });
                   console.log("[chat:deep]", JSON.stringify({ user: caller.user.id, engine: "tasks", model: usedModel, overall: r.state.overall, final: r.state.finalValidation, calls: r.calls, reused: r.reused, ms: Date.now() - t0 }));
-                  if (r.state.overall === "failed" && !r.state.tasks.some((t) => t.output)) { progress("failed", "No result was generated"); ctrl.enqueue(sseChunk(ALL_PROVIDERS_UNAVAILABLE)); }
-                  else { await saveReply(caller.user.id, chatId, requestId, r.text, { executionMode: task.executionMode }); for (let i = 0; i < r.text.length; i += 400) ctrl.enqueue(sseChunk(r.text.slice(i, i + 400))); }
+                  if (r.state.overall === "failed" && !r.state.tasks.some((t) => t.output)) { progress("failed", "No result was generated"); put(sseChunk(ALL_PROVIDERS_UNAVAILABLE)); }
+                  else { await saveReply(caller.user.id, chatId, requestId, r.text, { executionMode: task.executionMode }); outcome = { status: "completed" }; for (let i = 0; i < r.text.length; i += 400) put(sseChunk(r.text.slice(i, i + 400))); }
                   return;
                 }
                 progress("analyzing");
@@ -204,16 +210,20 @@ export const Route = createFileRoute("/api/chat")({
                 console.log("[chat:deep]", JSON.stringify({ user: caller.user.id, model: usedModel, ok: res.ok, stages: res.stages, corrections: res.ok ? res.corrections : 0, remaining: res.ok ? res.remaining.length : null, ms: Date.now() - t0 }));
                 if (res.ok) {
                   await saveReply(caller.user.id, chatId, requestId, res.text, { executionMode: task.executionMode });
-                  for (let i = 0; i < res.text.length; i += 400) ctrl.enqueue(sseChunk(res.text.slice(i, i + 400)));
+                  outcome = { status: "completed" };
+                  for (let i = 0; i < res.text.length; i += 400) put(sseChunk(res.text.slice(i, i + 400)));
                 } else if (res.status !== 499) {
+                  outcome = { status: "failed", error: res.reason };
                   progress("failed", res.reason);
-                  ctrl.enqueue(sseChunk(res.status === 503 ? ALL_PROVIDERS_UNAVAILABLE : res.stages.includes("plan-failed") ? "Deep Thinking couldn't build a reliable story plan, so it stopped instead of writing an unplanned story. Please try again." : "Deep Thinking couldn't produce an answer right now — no result was generated. Please try again."));
-                }
+                  put(sseChunk(res.status === 503 ? ALL_PROVIDERS_UNAVAILABLE : res.stages.includes("plan-failed") ? "Deep Thinking couldn't build a reliable story plan, so it stopped instead of writing an unplanned story. Please try again." : "Deep Thinking couldn't produce an answer right now — no result was generated. Please try again."));
+                } else outcome = { status: "cancelled" };
               } catch (e) {
                 console.error("[chat:deep]", { category: "internal_error" });
+                outcome = { status: "failed", error: "Internal error" };
                 providerProgress?.("failed", "Internal error");
-                ctrl.enqueue(sseChunk("Deep Thinking stopped because of an internal error — no verified answer was produced."));
+                put(sseChunk("Deep Thinking stopped because of an internal error — no verified answer was produced."));
               } finally {
+                await gen?.finish(outcome.status, outcome.error);
                 clearInterval(ping);
                 try { ctrl.enqueue(sseDone()); ctrl.close(); } catch { /* closed */ }
               }
@@ -247,7 +257,17 @@ export const Route = createFileRoute("/api/chat")({
         const stream = new ReadableStream<Uint8Array>({
           start(ctrl) { const run = (async () => {
             const send = (s: string) => { try { ctrl.enqueue(enc.encode(s)); } catch { /* closed */ } };
-            const emit = taskEmitter(taskId, send);
+            // Live stage + outcome are stored so a reloaded chat reconnects to this generation instead of resending.
+            const { trackGeneration } = await import("@/lib/ai/generation-store.server");
+            const gen = chatId ? trackGeneration(caller.user.id, chatId, taskId) : null;
+            let outcome: { status: "completed" | "failed" | "cancelled"; error?: string } = { status: "failed", error: "Internal error" };
+            const emitRaw = taskEmitter(taskId, send);
+            const emit: typeof emitRaw = (stage, message, meta) => {
+              gen?.stage(stage, message);
+              if (stage === "cancelled") outcome = { status: "cancelled" };
+              if (stage === "failed") outcome = { status: "failed", error: message };
+              emitRaw(stage, message, meta);
+            };
             const ping = setInterval(() => send(": working\n\n"), 8000);
             try {
               emit("thinking");
@@ -321,17 +341,20 @@ export const Route = createFileRoute("/api/chat")({
               emit("finalizing");
               const answer = best.issues ? `${checkedText}\n\n> [!NOTE]\n> Verification note: after ${attempt} attempt${attempt === 1 ? "" : "s"} these checks still fail: ${best.list.slice(0, 3).map((i) => i.message).join(" ")}` : checkedText;
               await saveReply(caller.user.id, chatId, taskId, answer, { executionMode: task.executionMode, output: task.output });
+              outcome = { status: "completed" };
+              await gen?.finish("completed");
               console.log("[chat:task]", JSON.stringify({ user: caller.user.id, taskId, model: usedModel, attempts: attempt, unresolved: best.issues, search: searchUsed }));
               const out = new ReadableStream<Uint8Array>({ start(c2) { for (let i = 0; i < answer.length; i += 400) c2.enqueue(sseChunk(answer.slice(i, i + 400))); c2.enqueue(sseDone()); c2.close(); } });
               const wrapped = contentIntent?.intent === "deliverable" && contentIntent.single ? wrapCopyReady(out, contentIntent.rawMarkdown ? "text" : "markdown") : out;
               const reader = wrapped.getReader();
-              for (;;) { const { done, value } = await reader.read(); if (done) break; ctrl.enqueue(value); }
+              for (;;) { const { done, value } = await reader.read(); if (done) break; try { ctrl.enqueue(value); } catch { /* browser left; answer already saved */ } }
               return;
             } catch (e) {
               console.error("[chat:task]", { category: "internal_error" });
               emit("failed", "Internal error");
               send(`data: ${JSON.stringify({ vision_error: { message: "The request stopped because of an internal error." } })}\n\n`);
             } finally {
+              await gen?.finish(outcome.status, outcome.error);
               clearInterval(ping);
               try { ctrl.enqueue(sseComment("end")); ctrl.enqueue(sseDone()); ctrl.close(); } catch { /* closed */ }
             }
