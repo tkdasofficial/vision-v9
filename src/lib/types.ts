@@ -115,6 +115,8 @@ export type ChatMessage = {
   executionMode?: string;
   /** Deep Thinking Mode progress for this reply (status card + final answer). */
   deep?: { stage: DeepStage; seconds?: number; detail?: string };
+  /** Persistent activity record: real elapsed seconds and the operations that actually ran. */
+  activity?: { seconds: number; steps: string[] };
 };
 
 export type DeepStage = "thinking" | "analyzing" | "planning" | "researching" | "working" | "generating" | "verifying" | "correcting" | "validating" | "crafting" | "retrying" | "switching_provider" | "done" | "failed";
