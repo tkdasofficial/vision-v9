@@ -111,3 +111,16 @@ export function workingContext(history: ConvMsg[], max = 1500): { instructions: 
   const summary = asks.length ? `Earlier requests in this chat: ${asks.slice(-8).map((a, i) => `(${i + 1}) ${a}`).join(" ")}` : "";
   return { instructions: instructions.slice(-12), summary: summary.slice(0, max) };
 }
+
+/** Pulls the referenced chat content back out of a tool prompt built with sourceBlock. */
+export function extractSource(prompt: string): { request: string; source: string } | null {
+  const m = prompt.match(/<<<SOURCE\n([\s\S]*?)\nSOURCE>>>/);
+  if (!m) return null;
+  const request = prompt.slice(0, prompt.indexOf("Referenced source —")).trim() || prompt.slice(0, m.index).trim();
+  return { request, source: m[1].replace(/\n\[…truncated to fit the limit;[^\]]*\]$/, "") };
+}
+
+/** True when the user asks to change the content itself, not only package it as a file. */
+export function asksToChangeContent(request: string): boolean {
+  return /\b(rewrite|re-?write|edit|modify|change|shorten|summari[sz]e|expand|continue|translate|improve|polish|fix|add|remove|longer|shorter|simplify|new|another|write|create (a|an) (new )?(story|poem|essay|article|report))\b/i.test(request.replace(/\b(the|this|that|my|your|above|previous|last)\s+(story|poem|essay|article|report|answer|text)\b/gi, ""));
+}

@@ -10,7 +10,7 @@ import { detectLocale, localeById } from "@/lib/i18n/locales";
 
 export type WorkFile = { name: string; mime: string; bytes: Uint8Array };
 export type ToolOut = { table?: unknown[][]; text?: string; data?: unknown; files?: WorkFile[]; preview?: { kind: "svg" | "markdown"; content: string } };
-export type ToolCtx = { files: WorkFile[]; lastText: string; lastTable?: unknown[][]; complete: (system: string, user: string, maxTokens?: number) => Promise<string>; note: (d: string) => Promise<void>; stage?: (stage: "writing_content" | "creating_document" | "converting_file", detail: string) => Promise<void> };
+export type ToolCtx = { files: WorkFile[]; lastText: string; verbatim?: string; lastTable?: unknown[][]; complete: (system: string, user: string, maxTokens?: number) => Promise<string>; note: (d: string) => Promise<void>; stage?: (stage: "writing_content" | "creating_document" | "converting_file", detail: string) => Promise<void> };
 export type Tool = { id: string; category: string; desc: string; params: string; run: (c: ToolCtx, p: any) => Promise<ToolOut> };
 
 const MAX_TEXT = 400_000;
@@ -246,8 +246,9 @@ export const TOOLS: Tool[] = [
       return { text: `Saved ${rows.length - 1} data rows to ${file.name}.`, files: [file], table: rows };
     }
     const src = p?.use_previous !== false && c.lastText ? `\n\nSource material:\n${c.lastText.slice(0, 30000)}` : "";
-    await c.stage?.("writing_content", "Writing document content");
-    const md = clean(await c.complete(`You write complete, polished documents in Markdown. Use # headings, lists and Markdown tables where useful.${/xlsx|csv|excel/.test(fmt) ? " The document MUST be a single Markdown table with a header row containing all data." : ""} Output only the document.`, `${p?.request || "Write the document."}${src}`, 6000));
+    const ready = p?.use_previous !== false && c.verbatim?.trim() ? c.verbatim.trim() : "";
+    if (!ready) await c.stage?.("writing_content", "Writing document content");
+    const md = ready || clean(await c.complete(`You write complete, polished documents in Markdown. Use # headings, lists and Markdown tables where useful.${/xlsx|csv|excel/.test(fmt) ? " The document MUST be a single Markdown table with a header row containing all data." : ""} Output only the document.`, `${p?.request || "Write the document."}${src}`, 6000));
     if (!md) throw new Error("The writer returned nothing.");
     const title = p?.title || md.match(/^#\s+(.*)/m)?.[1] || "Document";
     await c.stage?.("creating_document", `Creating ${fmt.toUpperCase()}`);
