@@ -49,7 +49,7 @@ const STAGE_STATE: Record<TaskStage, WorkState | null> = {
   cancelled: "CANCELLED",
 };
 
-/** Every job status, folded into one worker status (absent = no status; the result is shown instead). */
+/** Every job status, folded into one worker status (absent = terminal; the job card shows its own outcome). */
 const JOB_STATE: Partial<Record<JobStatus, WorkState>> = {
   queued: "WAITING",
   dispatched: "WAITING",
@@ -81,11 +81,6 @@ const JOB_STATE: Partial<Record<JobStatus, WorkState>> = {
   converting_file: "GENERATING",
   validating_output: "VALIDATING",
   saving_file: "FINALIZING",
-  completed: "COMPLETED",
-  completed_with_warnings: "COMPLETED",
-  failed: "FAILED",
-  cancelled: "CANCELLED",
-  timed_out: "FAILED",
 };
 
 /** Worker status for a streamed task stage; null when it must not appear in the UI. */
