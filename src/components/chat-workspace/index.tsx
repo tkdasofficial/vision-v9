@@ -462,8 +462,9 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const stopped = ctrl.signal.aborted;
       const replyText = finalText || (stopped ? "Stopped." : "I couldn't come up with an answer. Please try again.");
       // Persistent activity record: real elapsed time and the operations that actually ran (never simulated).
-      const activity = taskRef?.history?.length
-        ? activitySummary(taskRef.history, (Date.now() - taskStart) / 1000) ?? undefined
+      const taskHist = (taskRef as TaskState | null)?.history;
+      const activity = taskHist?.length
+        ? activitySummary(taskHist, (Date.now() - taskStart) / 1000) ?? undefined
         : undefined;
       const deepSeconds = Math.max(1, Math.round((Date.now() - deepStart) / 1000));
       const deepActivity = deep && deepHist.length ? deepActivitySummary(deepHist, deepSeconds) ?? undefined : undefined;
