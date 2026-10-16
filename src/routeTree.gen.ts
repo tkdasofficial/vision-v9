@@ -49,6 +49,7 @@ import { Route as AdminSystemRouteImport } from './routes/admin.system'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AiProviderRouteImport } from './routes/ai.$provider'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiChatStatusRouteImport } from './routes/api/chat-status'
 import { Route as ApiFilesRouteImport } from './routes/api/files'
 import { Route as ApiJobsRouteImport } from './routes/api/jobs'
 import { Route as AppSplatRouteImport } from './routes/app.$'
@@ -302,6 +303,11 @@ const AiProviderRoute = AiProviderRouteImport.update({
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatStatusRoute = ApiChatStatusRouteImport.update({
+  id: '/api/chat-status',
+  path: '/api/chat-status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFilesRoute = ApiFilesRouteImport.update({
@@ -617,6 +623,7 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/ai/$provider': typeof AiProviderRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/chat-status': typeof ApiChatStatusRoute
   '/api/files': typeof ApiFilesRoute
   '/api/jobs': typeof ApiJobsRouteWithChildren
   '/app/$': typeof AppSplatRoute
@@ -710,6 +717,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/ai/$provider': typeof AiProviderRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/chat-status': typeof ApiChatStatusRoute
   '/api/files': typeof ApiFilesRoute
   '/api/jobs': typeof ApiJobsRouteWithChildren
   '/app/$': typeof AppSplatRoute
@@ -807,6 +815,7 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/ai/$provider': typeof AiProviderRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/chat-status': typeof ApiChatStatusRoute
   '/api/files': typeof ApiFilesRoute
   '/api/jobs': typeof ApiJobsRouteWithChildren
   '/app/$': typeof AppSplatRoute
@@ -905,6 +914,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/ai/$provider'
     | '/api/chat'
+    | '/api/chat-status'
     | '/api/files'
     | '/api/jobs'
     | '/app/$'
@@ -998,6 +1008,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/ai/$provider'
     | '/api/chat'
+    | '/api/chat-status'
     | '/api/files'
     | '/api/jobs'
     | '/app/$'
@@ -1094,6 +1105,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/ai/$provider'
     | '/api/chat'
+    | '/api/chat-status'
     | '/api/files'
     | '/api/jobs'
     | '/app/$'
@@ -1178,6 +1190,7 @@ export interface RootRouteChildren {
   VerifyRoute: typeof VerifyRouteWithChildren
   AiProviderRoute: typeof AiProviderRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiChatStatusRoute: typeof ApiChatStatusRoute
   ApiFilesRoute: typeof ApiFilesRoute
   ApiJobsRoute: typeof ApiJobsRouteWithChildren
   BillingPlansRoute: typeof BillingPlansRoute
@@ -1482,6 +1495,13 @@ declare module '@tanstack/react-router' {
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat-status': {
+      id: '/api/chat-status'
+      path: '/api/chat-status'
+      fullPath: '/api/chat-status'
+      preLoaderRoute: typeof ApiChatStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/files': {
@@ -2054,6 +2074,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyRoute: VerifyRouteWithChildren,
   AiProviderRoute: AiProviderRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiChatStatusRoute: ApiChatStatusRoute,
   ApiFilesRoute: ApiFilesRoute,
   ApiJobsRoute: ApiJobsRouteWithChildren,
   BillingPlansRoute: BillingPlansRoute,

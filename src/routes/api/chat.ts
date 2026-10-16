@@ -247,7 +247,17 @@ export const Route = createFileRoute("/api/chat")({
         const stream = new ReadableStream<Uint8Array>({
           start(ctrl) { const run = (async () => {
             const send = (s: string) => { try { ctrl.enqueue(enc.encode(s)); } catch { /* closed */ } };
-            const emit = taskEmitter(taskId, send);
+            // Live stage + outcome are stored so a reloaded chat reconnects to this generation instead of resending.
+            const { trackGeneration } = await import("@/lib/ai/generation-store.server");
+            const gen = chatId ? trackGeneration(caller.user.id, chatId, taskId) : null;
+            let outcome: { status: "completed" | "failed" | "cancelled"; error?: string } = { status: "failed", error: "Internal error" };
+            const emitRaw = taskEmitter(taskId, send);
+            const emit: typeof emitRaw = (stage, message, meta) => {
+              gen?.stage(stage, message);
+              if (stage === "cancelled") outcome = { status: "cancelled" };
+              if (stage === "failed") outcome = { status: "failed", error: message };
+              emitRaw(stage, message, meta);
+            };
             const ping = setInterval(() => send(": working\n\n"), 8000);
             try {
               emit("thinking");
@@ -321,17 +331,20 @@ export const Route = createFileRoute("/api/chat")({
               emit("finalizing");
               const answer = best.issues ? `${checkedText}\n\n> [!NOTE]\n> Verification note: after ${attempt} attempt${attempt === 1 ? "" : "s"} these checks still fail: ${best.list.slice(0, 3).map((i) => i.message).join(" ")}` : checkedText;
               await saveReply(caller.user.id, chatId, taskId, answer, { executionMode: task.executionMode, output: task.output });
+              outcome = { status: "completed" };
+              await gen?.finish("completed");
               console.log("[chat:task]", JSON.stringify({ user: caller.user.id, taskId, model: usedModel, attempts: attempt, unresolved: best.issues, search: searchUsed }));
               const out = new ReadableStream<Uint8Array>({ start(c2) { for (let i = 0; i < answer.length; i += 400) c2.enqueue(sseChunk(answer.slice(i, i + 400))); c2.enqueue(sseDone()); c2.close(); } });
               const wrapped = contentIntent?.intent === "deliverable" && contentIntent.single ? wrapCopyReady(out, contentIntent.rawMarkdown ? "text" : "markdown") : out;
               const reader = wrapped.getReader();
-              for (;;) { const { done, value } = await reader.read(); if (done) break; ctrl.enqueue(value); }
+              for (;;) { const { done, value } = await reader.read(); if (done) break; try { ctrl.enqueue(value); } catch { /* browser left; answer already saved */ } }
               return;
             } catch (e) {
               console.error("[chat:task]", { category: "internal_error" });
               emit("failed", "Internal error");
               send(`data: ${JSON.stringify({ vision_error: { message: "The request stopped because of an internal error." } })}\n\n`);
             } finally {
+              await gen?.finish(outcome.status, outcome.error);
               clearInterval(ping);
               try { ctrl.enqueue(sseComment("end")); ctrl.enqueue(sseDone()); ctrl.close(); } catch { /* closed */ }
             }
