@@ -84,7 +84,8 @@ export async function maybeProxyToWorker(request: Request): Promise<Response | n
     // Session cookies from the Worker must be re-scoped to this origin.
     const setCookies = upstream.headers.getSetCookie?.() ?? [];
     for (const cookie of setCookies) responseHeaders.append("set-cookie", cookie);
-    return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
+    const isStream = (upstream.headers.get("content-type") ?? "").includes("text/event-stream");
+    return new Response(isStream && upstream.body ? detachFromClient(upstream.body) : upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
   } catch (e: any) {
     console.error("[api-proxy] worker unreachable", e?.message);
     return Response.json({ error: "The backend service is unreachable. Please try again shortly." }, { status: 502 });
