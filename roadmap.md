@@ -23,3 +23,8 @@ Spec: user-uploaded VISION memory/output/artifact/activity integration doc (5 ta
 - Added fail-soft test: DB unreachable -> savePermanentMemory null, load [] (11/11 pass).
 - Full suite: 1263 passed | 1 skipped; production build OK.
 - Remaining known limitation (pre-existing, separate from memory): if the page is reloaded mid-generation, the preview proxy aborts the upstream Worker request, so that reply isn't saved; the reload poll then waits up to 15 min. Memory itself is still saved. On the Worker itself (no proxy) replies run detached and survive reloads.
+
+## Reload during generation — done
+- [x] Server records generation stage/outcome (chat_generations); /api/chat-status for reconnect
+- [x] Preview proxy keeps generation alive after reload; first message of a new chat now carries its chat id (answer was previously never saved server-side)
+- [x] Verified: reload mid-answer → live "Writing" status restored → answer appears once; provider failure → clear note, no spinner
