@@ -59,3 +59,15 @@ describe("activitySummary (Task 4 activity history)", () => {
     expect(activitySummary(["thinking"] as any, 7.6)!.seconds).toBe(8);
   });
 });
+
+import { deepActivitySummary } from "@/lib/ai/work-status";
+
+describe("deepActivitySummary", () => {
+  it("maps deep stages to the same worker labels, dropping hidden ones", () => {
+    const a = deepActivitySummary(["analyzing", "researching", "crafting", "verifying", "done"], 12.4);
+    expect(a).toEqual({ seconds: 12, steps: ["Analyzing", "Searching", "Writing", "Validating"] });
+  });
+  it("returns null when only hidden stages ran", () => {
+    expect(deepActivitySummary(["switching_provider"], 3)).toBeNull();
+  });
+});
