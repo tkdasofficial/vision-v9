@@ -1,0 +1,25 @@
+// Activity row UI: collapsed "Worked for Ns" that expands to the real step history.
+import { describe, expect, it } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import ChatMessage from "@/components/chat-message";
+
+const base = { id: "1", role: "assistant", content: "Here is your answer.", timestamp: new Date() } as any;
+
+describe("activity row", () => {
+  it("shows the real duration collapsed, history hidden by default", () => {
+    render(<ChatMessage message={{ ...base, activity: { seconds: 12, steps: ["Thinking", "Writing"] } }} />);
+    expect(screen.getByText("Worked for 12s")).toBeTruthy();
+    expect(screen.queryByText("Thinking")).toBeNull();
+  });
+  it("expands to the step history on click", () => {
+    render(<ChatMessage message={{ ...base, activity: { seconds: 12, steps: ["Thinking", "Searching", "Writing"] } }} />);
+    fireEvent.click(screen.getByText("Worked for 12s"));
+    expect(screen.getByText("Thinking")).toBeTruthy();
+    expect(screen.getByText("Searching")).toBeTruthy();
+    expect(screen.getByText("Writing")).toBeTruthy();
+  });
+  it("renders no row without an activity record", () => {
+    render(<ChatMessage message={base} />);
+    expect(screen.queryByText(/Worked for/)).toBeNull();
+  });
+});
