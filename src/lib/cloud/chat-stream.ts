@@ -56,3 +56,10 @@ export async function streamChat(
   // Some models wrap private reasoning in <think> tags; never show it.
   return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 }
+
+/** Server record of the latest reply generation in a chat (null when none was recorded). */
+export async function fetchGeneration(chatId: string): Promise<import("@/lib/ai/generation-state").GenerationView | null> {
+  const res = await fetch(`/api/chat-status?chat=${encodeURIComponent(chatId)}`, { credentials: "include", cache: "no-store" });
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  return ((await res.json()) as any).generation ?? null;
+}
