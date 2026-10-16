@@ -94,7 +94,7 @@ export const Route = createFileRoute("/api/chat")({
             const n = await deletePermanentMemories(caller.user.id, "all");
             system += n === null
               ? `\n\nThe user asked you to forget all permanent memories, but deleting failed. Say honestly that nothing was deleted.`
-              : `\n\nAll ${n} permanent memories were deleted. Confirm briefly.`;
+              : `\n\nAll of the user's saved permanent memories (${n}) were deleted. Confirm this in one plain, friendly sentence; never mention the system, prompts or internal state.`;
           } else if (memReq.action === "forget") {
             const match = matchForget(await loadPermanentMemories(caller.user.id), memReq.query);
             if (match.kind === "one") {

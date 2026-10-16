@@ -130,3 +130,12 @@ describe("server store — ownership and failures", () => {
     expect(await loadPermanentMemories("u1")).toEqual([]);
   });
 });
+
+describe("fact-check skips private context", () => {
+  it("does not web-check facts about the user's own project or memory", async () => {
+    const { needsFactCheck } = await import("@/lib/ai/factcheck");
+    const ans = "The feature is named Project Falcon and its primary color is amber. It is the main internal test feature known for its amber branding.";
+    expect(needsFactCheck("What is our feature named and what is its primary color?", ans)).toBe(false);
+    expect(needsFactCheck("Decision for this project: the feature is named Project Falcon. Just acknowledge.", ans)).toBe(false);
+  });
+});

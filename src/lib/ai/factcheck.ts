@@ -33,6 +33,8 @@ export function needsFactCheck(request: string, answer: string): boolean {
   // Calculations on the user's own figures are checked by arithmetic validators, not web pages.
   if (/\b(calculat\w*|comput\w*|solve|work out|evaluate|how much will|monthly payment|amortization|compound interest)\b/i.test(request)) return false;
   if (/\b(write|compose|draft|poem|story|lyrics|joke|imagine|fiction|code|function|script|regex|translate|rewrite|paraphrase|summari[sz]e (this|the following))\b/i.test(request)) return false;
+  // Facts about the user, their project or this conversation come from memory/context, not the web.
+  if (/\b(my|mine|our|ours|we|us|this (project|chat|conversation)|decision|acknowledge|remember|forget)\b/i.test(request)) return false;
   return allClaims(answer).length > 0;
 }
 
