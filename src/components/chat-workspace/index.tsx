@@ -19,7 +19,7 @@ import ChatMessage from "@/components/chat-message";
 import EmptyState from "@/components/empty-state";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "@/components/typing-indicator";
 import { applyTaskEvent, type TaskState } from "@/lib/ai/task-events";
-import { workStateForStage } from "@/lib/ai/work-status";
+import { workStateForStage, workStateLabel } from "@/lib/ai/work-status";
 import { revealPlan } from "@/lib/ai/render-scheduler";
 import { getCategory } from "@/lib/file-converter";
 import { runJob, listJobs, fetchJob, cancelJob } from "@/lib/builder/jobs-client";
@@ -656,7 +656,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
                 isNew={newMessageIds.has(msg.id)}
               />
             ))}
-            {isTyping && !messages.some((m) => m.job && !isTerminal(m.job.status)) && <TypingIndicator phase={thinkingPhase} label={taskState ? (workStateForStage(taskState.stage) ?? undefined) : undefined} />}
+            {isTyping && !messages.some((m) => m.job && !isTerminal(m.job.status)) && <TypingIndicator phase={thinkingPhase} label={taskState ? workStateLabel(workStateForStage(taskState.stage)) : undefined} />}
           </div>
         ) : (
           <EmptyState tool={tool} />
