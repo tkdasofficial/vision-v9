@@ -330,6 +330,7 @@ const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false 
             {message.generatedFile && (
               <FileCreatorCard file={message.generatedFile} />
             )}
+            {message.activity && typingDone && <ActivityRow activity={message.activity} />}
             {/* Action bar */}
             {message.content && typingDone && (!message.deep || message.deep.stage === "done") && (
               <div className="flex items-center gap-0.5 pt-1">
