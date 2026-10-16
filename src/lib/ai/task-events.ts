@@ -7,7 +7,7 @@ export type TaskStage =
   | "reviewing_answer" | "verifying_accuracy" | "checking_completeness" | "validating_requirements" | "detecting_issues" | "fixing_issues" | "retrying"
   | "building_output" | "preparing_output" | "finalizing" | "switching_provider" | "failed" | "cancelled";
 
-/** The standard catalogue (30). Available labels, not a sequence: the server emits only those it actually performs. */
+/** The standard catalogue. Available labels, not a sequence: the server emits only those it actually performs. */
 export const STAGE_LABELS: Record<TaskStage, string> = {
   thinking: "Thinking", retrieving_context: "Retrieving Context", planning: "Planning", writing: "Writing", understanding_request: "Understanding Request", analyzing_requirements: "Analyzing Requirements", reasoning: "Reasoning",
   searching_web: "Searching the Web", reading_sources: "Reading Sources", gathering_information: "Gathering Information", comparing_sources: "Comparing Sources", fact_checking: "Fact-Checking", extracting_information: "Extracting Information",
