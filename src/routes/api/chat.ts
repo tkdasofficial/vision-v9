@@ -71,28 +71,53 @@ export const Route = createFileRoute("/api/chat")({
         const chatCtx = await loadChatContext(caller.user.id, chatId);
         const prefs = parsePrefs(chatCtx.prefsRaw);
         let system = `${systemPromptFor(task)}\n\n${promptAddendum(prefs, { personal: includesPersonal(chatCtx.scope) })}`;
-        if (chatCtx.scope === "project" && chatCtx.projectId && chatId) {
-          const pm = await loadProjectMemory(caller.user.id, chatCtx.projectId, chatId);
+        // Project memory: every project chat sees relevant requests/outputs from its OTHER chats in the
+        // same project (owner + project checked in SQL). Never crosses projects.
+        if (chatCtx.projectId && chatId) {
+          const pm = await loadProjectMemory(caller.user.id, chatCtx.projectId, chatId, lastText);
           if (pm) system += `\n\n${pm}`;
         }
-        // Permanent memory: personal facts the user explicitly asked to be remembered. Never injected
-        // into project-scope chats (personal must not leak into shared project context).
+        // Permanent memory: personal facts. Never injected into "project"-scope chats (no personal leak).
+        // Every save/delete is confirmed to the model only after D1 reports success.
         if (includesPersonal(chatCtx.scope) && lastText.trim()) {
-          const { detectMemoryRequest, relevantMemories, permanentMemoryBlock } = await import("@/lib/ai/memory");
-          const { loadPermanentMemories, savePermanentMemory } = await import("@/lib/ai/memory.server");
-          const memReq = detectMemoryRequest(lastText);
+          const { detectMemoryCommand, detectAutoMemory, matchForget, relevantMemories, permanentMemoryBlock } = await import("@/lib/ai/memory");
+          const { loadPermanentMemories, savePermanentMemory, deletePermanentMemories } = await import("@/lib/ai/memory.server");
+          const memReq = detectMemoryCommand(lastText);
           if (memReq.action === "save") {
             const saved = await savePermanentMemory(caller.user.id, memReq.content);
-            system += saved
-              ? `\n\nThe user explicitly asked you to remember: "${saved.content}". It is now stored in permanent memory. Confirm briefly that you will remember it; do not add anything else.`
-              : `\n\nThe user asked you to remember something, but saving it failed. Say honestly that you could not save it; do not claim you remembered it.`;
+            system += !saved
+              ? `\n\nThe user asked you to remember something, but saving it failed. Say honestly that you could not save it; do not claim you remembered it.`
+              : saved.plan.kind === "replace"
+                ? `\n\nPermanent memory updated: "${saved.plan.previous}" was replaced with "${saved.memory.content}". Confirm the update briefly; do not add anything else.`
+                : `\n\nThe user explicitly asked you to remember: "${saved.memory.content}". It is now stored in permanent memory. Confirm briefly that you will remember it; do not add anything else.`;
+          } else if (memReq.action === "forget_all") {
+            const n = await deletePermanentMemories(caller.user.id, "all");
+            system += n === null
+              ? `\n\nThe user asked you to forget all permanent memories, but deleting failed. Say honestly that nothing was deleted.`
+              : `\n\nAll ${n} permanent memories were deleted. Confirm briefly.`;
+          } else if (memReq.action === "forget") {
+            const match = matchForget(await loadPermanentMemories(caller.user.id), memReq.query);
+            if (match.kind === "one") {
+              const n = await deletePermanentMemories(caller.user.id, [match.memory.id]);
+              system += n
+                ? `\n\nThe permanent memory "${match.memory.content}" was deleted. Confirm briefly; you no longer know this fact from memory.`
+                : `\n\nThe user asked you to forget "${match.memory.content}", but deleting failed. Say honestly that it is still stored.`;
+            } else if (match.kind === "ambiguous") {
+              system += `\n\nThe user asked you to forget something, but several stored memories match:\n${match.candidates.map((m) => `- ${m.content}`).join("\n")}\nNothing was deleted. Ask which one they mean, in one short question.`;
+            } else {
+              system += `\n\nThe user asked you to forget "${memReq.query}", but no stored permanent memory matches. Say so honestly; nothing was deleted. (Facts mentioned only in this chat are not permanent memory.)`;
+            }
+          } else if (memReq.action === "none" && chatCtx.owned && !chatCtx.projectId) {
+            // Auto-capture stable first-person facts silently; project chats and unsaved/incognito chats never auto-save.
+            const fact = detectAutoMemory(lastText);
+            if (fact) await savePermanentMemory(caller.user.id, fact, "auto");
           }
-          const all = await loadPermanentMemories(caller.user.id);
+          const all = memReq.action === "forget" || memReq.action === "forget_all" ? [] : await loadPermanentMemories(caller.user.id);
           if (memReq.action === "recall") {
             system += all.length
               ? `\n\n${permanentMemoryBlock(all.slice(0, 20))}\nThe user asked what you remember. List these facts honestly.`
               : `\n\nThe user asked what you remember about them, but permanent memory is empty. Say so honestly; do not invent memories.`;
-          } else {
+          } else if (all.length) {
             const rel = relevantMemories(all, lastText);
             if (rel.length) system += `\n\n${permanentMemoryBlock(rel)}`;
           }

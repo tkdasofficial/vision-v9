@@ -83,3 +83,5 @@ ALTER TABLE workspace_projects ADD COLUMN instructions TEXT;
 ALTER TABLE user_files ADD COLUMN project_id TEXT;
 ALTER TABLE workspace_projects ADD COLUMN memory TEXT DEFAULT 'default';
 CREATE TABLE IF NOT EXISTS claim_checks (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, conversation_id TEXT, message_id TEXT NOT NULL, records TEXT NOT NULL, summary TEXT NOT NULL, created_at INTEGER NOT NULL, UNIQUE(user_id, message_id));
+CREATE TABLE IF NOT EXISTS user_memories (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, content TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER, source TEXT DEFAULT 'explicit');
+CREATE INDEX IF NOT EXISTS idx_user_memories_user ON user_memories(user_id, created_at);
