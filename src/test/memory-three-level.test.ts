@@ -97,8 +97,7 @@ describe("server store — ownership and failures", () => {
   const calls: { sql: string; params: unknown[] }[] = [];
   let fail = false;
   let rows: any[] = [];
-  beforeEach(() => { calls.length = 0; fail = false; rows = []; vi.resetModules(); });
-  vi.mock("@/lib/cloud/d1.server", () => ({
+  beforeEach(() => { calls.length = 0; fail = false; rows = []; vi.resetModules(); vi.doMock("@/lib/cloud/d1.server", () => ({
     d1: async (sql: string, params: unknown[] = []) => {
       calls.push({ sql, params });
       if (fail && !sql.startsWith("CREATE") && !sql.startsWith("ALTER")) throw new Error("D1 down");
@@ -106,7 +105,7 @@ describe("server store — ownership and failures", () => {
       if (sql.includes("RETURNING")) return [{ id: "x" }];
       return [];
     },
-  }));
+  })); });
 
   it("replaces a conflicting fact scoped to the same user", async () => {
     rows = [{ id: "a", content: "my favorite color is teal", created_at: 1 }];
