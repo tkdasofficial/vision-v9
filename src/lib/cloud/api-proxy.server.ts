@@ -91,3 +91,30 @@ export async function maybeProxyToWorker(request: Request): Promise<Response | n
     return Response.json({ error: "The backend service is unreachable. Please try again shortly." }, { status: 502 });
   }
 }
+
+/**
+ * Streams the Worker's answer to the browser, but keeps reading it to the end even if the browser
+ * disconnects (reload, closed tab). The Worker therefore never sees a disconnect, finishes the
+ * generation and saves it; the reloaded page reconnects through /api/chat-status.
+ */
+export function detachFromClient(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+  const reader = body.getReader();
+  let clientGone = false;
+  return new ReadableStream<Uint8Array>({
+    start(ctrl) {
+      void (async () => {
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (!clientGone) { try { ctrl.enqueue(value); } catch { clientGone = true; } }
+          }
+          if (!clientGone) ctrl.close();
+        } catch (e) {
+          if (!clientGone) { try { ctrl.error(e); } catch { /* closed */ } }
+        }
+      })();
+    },
+    cancel() { clientGone = true; /* keep draining upstream */ },
+  });
+}
