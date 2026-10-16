@@ -95,7 +95,7 @@ function stableRowId(sessionId: string, localId: string): string {
 }
 
 /** Serialize a ChatMessage's extra data into a JSONB-safe metadata object */
-function buildMetadata(msg: ChatMessage): Record<string, any> {
+export function buildMetadata(msg: ChatMessage): Record<string, any> {
   const meta: Record<string, any> = {};
   if (msg.toolId) meta.toolId = msg.toolId;
   if (msg.webApp) meta.webApp = msg.webApp;
