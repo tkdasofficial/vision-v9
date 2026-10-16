@@ -1,5 +1,5 @@
 // Permanent memory: explicit save detection, relevance selection, scope isolation, honesty on empty.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { detectMemoryRequest, relevantMemories, permanentMemoryBlock, resolveScope, includesPersonal, type PermanentMemory } from "@/lib/ai/memory";
 
 const mem = (id: string, content: string, createdAt = 1): PermanentMemory => ({ id, content, createdAt });
@@ -61,5 +61,15 @@ describe("scope isolation", () => {
     expect(includesPersonal(resolveScope("p1", "project"))).toBe(false);
     expect(includesPersonal(resolveScope("p1", "default"))).toBe(true);
     expect(includesPersonal(resolveScope(null, null))).toBe(true);
+  });
+});
+
+describe("memory persistence failure", () => {
+  it("fails soft: save returns null and load returns [] when the database is unreachable", async () => {
+    vi.doMock("@/lib/cloud/d1.server", () => ({ d1: async () => { throw new Error("Database request failed"); } }));
+    const { savePermanentMemory, loadPermanentMemories } = await import("@/lib/ai/memory.server");
+    expect(await savePermanentMemory("u1", "my favorite color is teal")).toBeNull();
+    expect(await loadPermanentMemories("u1")).toEqual([]);
+    vi.doUnmock("@/lib/cloud/d1.server");
   });
 });
