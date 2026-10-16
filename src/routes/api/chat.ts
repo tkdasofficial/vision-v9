@@ -75,6 +75,28 @@ export const Route = createFileRoute("/api/chat")({
           const pm = await loadProjectMemory(caller.user.id, chatCtx.projectId, chatId);
           if (pm) system += `\n\n${pm}`;
         }
+        // Permanent memory: personal facts the user explicitly asked to be remembered. Never injected
+        // into project-scope chats (personal must not leak into shared project context).
+        if (includesPersonal(chatCtx.scope) && lastText.trim()) {
+          const { detectMemoryRequest, relevantMemories, permanentMemoryBlock } = await import("@/lib/ai/memory");
+          const { loadPermanentMemories, savePermanentMemory } = await import("@/lib/ai/memory.server");
+          const memReq = detectMemoryRequest(lastText);
+          if (memReq.action === "save") {
+            const saved = await savePermanentMemory(caller.user.id, memReq.content);
+            system += saved
+              ? `\n\nThe user explicitly asked you to remember: "${saved.content}". It is now stored in permanent memory. Confirm briefly that you will remember it; do not add anything else.`
+              : `\n\nThe user asked you to remember something, but saving it failed. Say honestly that you could not save it; do not claim you remembered it.`;
+          }
+          const all = await loadPermanentMemories(caller.user.id);
+          if (memReq.action === "recall") {
+            system += all.length
+              ? `\n\n${permanentMemoryBlock(all.slice(0, 20))}\nThe user asked what you remember. List these facts honestly.`
+              : `\n\nThe user asked what you remember about them, but permanent memory is empty. Say so honestly; do not invent memories.`;
+          } else {
+            const rel = relevantMemories(all, lastText);
+            if (rel.length) system += `\n\n${permanentMemoryBlock(rel)}`;
+          }
+        }
         let contentIntent: import("@/lib/ai/content-intent").IntentResult | null = null;
         // Content intent (copy-ready deliverable / code / data / normal answer) shapes the output format only.
         {

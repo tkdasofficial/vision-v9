@@ -29,11 +29,20 @@ You do NOT have live web access. Do not invent sources, URLs, statistics or quot
 const CODING = `${BASE}
 You are an expert software engineer. Put every code file in its own fenced block with a language tag. When a filename matters, put it on the fence line like \`\`\`html title="index.html". Keep explanations short.`;
 
+// Output discipline: applies to every mode. Return exactly what was asked, nothing more.
+export const OUTPUT_DISCIPLINE = `Output discipline:
+- Follow the requested scope, format, language, structure and level of detail exactly.
+- Do not add unrequested explanations, alternative versions, summaries, suggestions or unrelated actions.
+- When the user asked for a file or artifact only, deliver the file with one brief confirmation line; do not repeat the content in the chat. If they explicitly asked for both the file and its contents, provide both.
+- Keep confirmations concise and relevant.
+- Ask a clarifying question only when essential information is missing; otherwise do the task.
+- If something fails or is impossible, state the real reason briefly and honestly.`;
+
 export function systemPromptFor(c: TaskClassification) {
   switch (c.executionMode) {
-    case "deep": return DEEP;
-    case "research": return RESEARCH;
-    case "coding": return CODING;
-    default: return BASE;
+    case "deep": return `${DEEP}\n${OUTPUT_DISCIPLINE}`;
+    case "research": return `${RESEARCH}\n${OUTPUT_DISCIPLINE}`;
+    case "coding": return `${CODING}\n${OUTPUT_DISCIPLINE}`;
+    default: return `${BASE}\n${OUTPUT_DISCIPLINE}`;
   }
 }

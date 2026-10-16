@@ -97,3 +97,53 @@ export function workStateForJob(status: JobStatus): WorkState | null {
 export function workStateLabel(state: WorkState | null | undefined): string | undefined {
   return state ? state.charAt(0) + state.slice(1).toLowerCase() : undefined;
 }
+
+/** A completed reply's persistent activity record: real elapsed seconds plus what actually ran. */
+export type ActivitySummary = { seconds: number; steps: string[] };
+
+/**
+ * Folds a reply's recorded task stages into a display history: hidden stages dropped,
+ * consecutive duplicates merged, labels in display form. Returns null when nothing real ran —
+ * the UI shows no activity row rather than a fabricated one. Seconds come from the caller's
+ * real measurement, never estimated here.
+ */
+export function activitySummary(stages: TaskStage[], seconds: number): ActivitySummary | null {
+  const steps: string[] = [];
+  for (const stage of stages) {
+    const label = workStateLabel(workStateForStage(stage));
+    if (!label || label === "Completed") continue;
+    if (steps[steps.length - 1] !== label) steps.push(label);
+  }
+  if (!steps.length) return null;
+  return { seconds: Math.max(0, Math.round(seconds)), steps };
+}
+
+// Deep Thinking stages use their own names; map them to the same worker-status labels.
+const DEEP_STAGE_STATE: Record<string, WorkState | null> = {
+  thinking: "THINKING",
+  analyzing: "ANALYZING",
+  planning: "PLANNING",
+  researching: "SEARCHING",
+  working: "EXECUTING",
+  generating: "GENERATING",
+  verifying: "VALIDATING",
+  correcting: "CORRECTING",
+  validating: "VALIDATING",
+  crafting: "WRITING",
+  retrying: "CORRECTING",
+  switching_provider: null,
+  done: "COMPLETED",
+  failed: "FAILED",
+};
+
+/** Same folding as activitySummary, for Deep Thinking replies' real stage history. */
+export function deepActivitySummary(stages: string[], seconds: number): ActivitySummary | null {
+  const steps: string[] = [];
+  for (const stage of stages) {
+    const label = workStateLabel(DEEP_STAGE_STATE[stage]);
+    if (!label || label === "Completed") continue;
+    if (steps[steps.length - 1] !== label) steps.push(label);
+  }
+  if (!steps.length) return null;
+  return { seconds: Math.max(0, Math.round(seconds)), steps };
+}

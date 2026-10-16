@@ -77,10 +77,21 @@ export class JobRun {
   private closeLast(outcome: "ok" | "warn" | "error") { const cur = this.steps[this.steps.length - 1]; if (cur && !cur.endedAt) { cur.endedAt = now(); cur.outcome ??= outcome; } }
 
   async saveArtifact(name: string, mime: string, bytes: Uint8Array, kind: ArtifactRef["kind"] | "source"): Promise<ArtifactRef> {
-    const { putArtifact } = await import("./artifact-store.server");
+    const { putArtifact, getArtifactBytes } = await import("./artifact-store.server");
     const driveId = await putArtifact(name, mime, bytes);
     const id = crypto.randomUUID();
     const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    // Verify before delivery: read the stored bytes back and compare size + hash, so a corrupt or
+    // partial write fails the task honestly instead of handing the user a damaged file.
+    try {
+      const back = await getArtifactBytes(driveId);
+      const backHash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", back as Uint8Array<ArrayBuffer>))].map((b) => b.toString(16).padStart(2, "0")).join("");
+      if (back.length !== bytes.length || backHash !== hash) throw new Error("integrity mismatch");
+    } catch (e) {
+      const { deleteArtifactBytes } = await import("./artifact-store.server");
+      await deleteArtifactBytes(driveId).catch(() => undefined);
+      throw new Error("The file could not be stored correctly. Please run the task again.");
+    }
     await d1("INSERT INTO job_artifacts (id, job_id, user_id, name, mime, size, sha256, drive_file_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [id, this.id, this.userId, name, mime, bytes.length, hash, driveId, kind, new Date(Date.now() + ARTIFACT_TTL_MS).toISOString(), now()]);
     return { id, name, size: bytes.length, kind: kind === "source" ? "file" : kind };

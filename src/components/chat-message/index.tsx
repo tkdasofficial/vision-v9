@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo, forwardRef } from "react";
 import type { ChatMessage as ChatMessageType, DeepStage } from "@/lib/types";
-import { Copy, Check, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag, Loader2, AlertCircle } from "lucide-react";
+import { Copy, Check, ChevronRight, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MarkdownReply from "@/components/chat/markdown-reply";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,38 @@ import UserMessage from "@/components/chat/user-message";
 import DocumentCard from "@/components/chat/document-card";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
+
+/**
+ * Persistent activity record for a finished reply: a collapsed "Worked for Ns" row that expands
+ * to the operations that actually ran. Seconds are the real measured duration; the row only
+ * renders when the server reported real stages.
+ */
+const ActivityRow = ({ activity }: { activity: { seconds: number; steps: string[] } }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="text-xs text-muted-foreground">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex items-center gap-1.5 py-0.5 hover:text-foreground transition-colors"
+      >
+        <ChevronRight className={cn("w-3 h-3 transition-transform", open && "rotate-90")} />
+        <span>Worked for {activity.seconds}s</span>
+      </button>
+      {open && (
+        <ol className="mt-1 ml-4 space-y-0.5 border-l border-border pl-3">
+          {activity.steps.map((step, i) => (
+            <li key={i} className="flex items-center gap-1.5">
+              <Check className="w-3 h-3 text-muted-foreground/70" />
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+};
 
 const getMessageSize = (content: string) => {
   if (content.length < 60) return "short";
@@ -330,6 +362,7 @@ const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false 
             {message.generatedFile && (
               <FileCreatorCard file={message.generatedFile} />
             )}
+            {message.activity && typingDone && <ActivityRow activity={message.activity} />}
             {/* Action bar */}
             {message.content && typingDone && (!message.deep || message.deep.stage === "done") && (
               <div className="flex items-center gap-0.5 pt-1">
