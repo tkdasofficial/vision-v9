@@ -178,6 +178,7 @@ async function sha(algo: string, bytes: Uint8Array) {
 /** Shared tail of the three repository analyzers: each provider fetches on its own; the model only sees what was retrieved. */
 async function repoTool(c: ToolCtx, p: any, fetchRepo: () => Promise<import("@/lib/repos/common").RepoSnapshot>) {
   const { snapshotText, inspectedList } = await import("@/lib/repos/common");
+  await c.stage("fetching", "Fetching the public repository");
   await c.note("Fetching the public repository");
   const s = await fetchRepo();
   await c.note(`Read ${s.fullName}: ${s.tree.length} files listed, ${s.files.length + (s.readme ? 1 : 0)} opened`);
@@ -518,6 +519,7 @@ export const TOOLS: Tool[] = [
   // Web
   { id: "web_fetch", category: "Webpage & HTML processing", desc: "Fetch a public webpage and extract its title, description, headings, links and readable text", params: '{"url": string, "save_as"?: "md"|"txt"|"pdf"}', run: async (c, p) => {
     if (!P.isPublicHttpUrl(p?.url ?? "")) throw new Error("Only public http(s) web addresses can be fetched.");
+    await c.stage("fetching", `Fetching ${new URL(p.url).hostname}`);
     await c.note(`Fetching ${new URL(p.url).hostname}`);
     const res = await fetch(p.url, { redirect: "follow", headers: { "User-Agent": "VISION-bot/1.0", Accept: "text/html,text/plain" }, signal: AbortSignal.timeout(20000) });
     if (!P.isPublicHttpUrl(res.url)) throw new Error("The page redirected to a private address.");

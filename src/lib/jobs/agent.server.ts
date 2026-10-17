@@ -86,6 +86,7 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
     await job.step("processing", `Step ${i + 1}/${plan.steps.length}: ${tool.id}${step.why ? ` — ${step.why}` : ""}`);
     cp.running = i; await persist(cp); // result unknown until recorded below; a crash here reruns this step
     let params = normalizeParams(step.params ?? {}, ctx.files.map((f) => f.name)), out, error = "";
+    await job.step("calling_tool", `Running ${tool.id}`);
     for (let attempt = 0; attempt <= MAX_STEP_REPAIRS; attempt++) {
       try { out = await executeTool(tool, ctx, params); break; }
       catch (e: any) {
@@ -103,7 +104,11 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
     if (!out) {
       job.markCurrent("error");
       results.push({ tool: tool.id, category: tool.category, error });
-      if (results.some((r) => !r.error)) { job.warn(`Step ${i + 1} (${tool.id}) failed: ${error}. Later steps were skipped.`); break; }
+      if (results.some((r) => !r.error)) {
+        job.warn(`Step ${i + 1} (${tool.id}) failed: ${error}. Later steps were skipped.`);
+        await job.step("skipped", `Skipping ${plan.steps.length - i - 1} remaining step(s) after ${tool.id} failed`);
+        break;
+      }
       throw new Error(error);
     }
     await job.step("validating_output", `Checking ${tool.id} output`);
