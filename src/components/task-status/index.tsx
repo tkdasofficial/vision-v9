@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 
 /**
  * Work-state line: plain text only — no card, no border, no background, no leading icon.
- * The label always comes from a real backend status; the seconds are real elapsed time.
+ * The label always comes from a real backend status; the finished time is the real elapsed time,
+ * shown only once the task is finished.
  */
 export default function TaskStatus({ label, startedAt, endedAt, failed = false, cancelled = false }: {
   label: string;
