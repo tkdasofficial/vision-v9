@@ -1,11 +1,12 @@
 # Roadmap — Memory, Output Control, Artifacts & Activity Tracking
 
 ## Current request — vision-sandbox D1 + long-context generation
-- [ ] Create "vision-sandbox" D1 database, bind as SANDBOX_DB in wrangler.toml, apply migrations local + remote.
-- [ ] Schema: generation_jobs/plans/chunks/context/events/outputs with keys, indexes, uniqueness.
-- [ ] Generation pipeline: plan → chunked generation → retry/resume → assemble → validate → complete.
-- [ ] API endpoints: create, status, chunks, retry, resume, cancel, output — owner-scoped.
-- [ ] Tests (mocked D1 + providers), full suite, build; report deployment steps still required.
+- [x] Created "vision-sandbox" D1 (id 4d8098d8-e148-46ea-9e79-b4d35c148c8f), SANDBOX_DB binding in wrangler.toml; schema applied local + remote (6 tables verified live).
+- [x] Schema in db/migrations/0001_vision_sandbox.sql: generation_jobs/plans/chunks/context/events/outputs with PKs, FKs, indexes, UNIQUE(job_id, seq), status checks.
+- [x] Pipeline in src/lib/sandbox/ (pure generation.ts, store.server.ts, runner.server.ts): outline plan → parallel independent chunks / sequential dependencies → retry failed only → resume from checkpoints → assemble → validate (gaps/order/duplication) → output.
+- [x] Endpoints /api/sandbox-generations (+ /$jobId with status/chunks/output/events views and retry/resume/cancel), owner-scoped, same proxy/auth/CSRF conventions as existing routes.
+- [x] 17 new tests in src/test/sandbox-generation.test.ts; full suite 1392 passed | 1 skipped; typecheck clean; automatic build OK.
+- [ ] Deploy the Worker (`npx wrangler deploy`) so the SANDBOX_DB binding is live; wire a UI entry point to the endpoints (none added — API only so far).
 
 # Roadmap — Memory, Output Control, Artifacts & Activity Tracking
 
