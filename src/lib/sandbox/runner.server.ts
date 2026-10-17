@@ -93,11 +93,7 @@ export async function runJob(userId: string, jobId: string, opts: { db?: Sandbox
       }
     });
     if (waveFailed) {
-      // Remaining failed chunks stay retryable; the job reports failure with its checkpoint intact.
-      const failed = (await store.listChunks(userId, jobId, db)).filter((c) => c.status === "failed");
-      if (failed.length && !(await store.getJob(userId, jobId, db)).completed_chunks) {
-        // nothing completed at all: hard failure
-      }
+      // Failed chunks stay retryable; the job reports failure with its checkpoint intact.
       const left = (await store.listChunks(userId, jobId, db)).filter((c) => c.status !== "completed");
       if (left.length) {
         await store.setJobStatus(userId, jobId, null, "failed", { error: `${left.length} chunk(s) failed; retry to resume.` }, db);
