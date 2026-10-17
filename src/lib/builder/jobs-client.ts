@@ -82,8 +82,19 @@ export async function retryJob(id: string, onUpdate: (j: JobView) => void): Prom
   let done = false;
   void (async () => { while (!done) { await new Promise((r) => setTimeout(r, 1200)); const j = await fetchJob(newId).catch(() => null); if (j && !done) onUpdate(j); } })();
   try {
-    const job = (await json(await fetch(`/api/jobs/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "retry", newId }), credentials: "include" }))).job;
-    onUpdate(job); return job;
+    const job: JobView = (await json(await fetch(`/api/jobs/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "retry", newId }), credentials: "include" }))).job;
+    onUpdate(job);
+    if (!isTerminal(job.status)) {
+      const deadline = Date.now() + 45 * 60_000;
+      let j: JobView | null = job;
+      while (j && !isTerminal(j.status) && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2000));
+        j = await fetchJob(newId).catch(() => null);
+        if (j) onUpdate(j);
+      }
+      return j ?? job;
+    }
+    return job;
   } finally { done = true; }
 }
 
