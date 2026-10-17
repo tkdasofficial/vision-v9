@@ -71,51 +71,65 @@ export const Route = createFileRoute("/api/chat")({
         const chatCtx = await loadChatContext(caller.user.id, chatId);
         const prefs = parsePrefs(chatCtx.prefsRaw);
         let system = `${systemPromptFor(task)}\n\n${promptAddendum(prefs, { personal: includesPersonal(chatCtx.scope) })}`;
-        // Project memory: every project chat sees relevant requests/outputs from its OTHER chats in the
-        // same project (owner + project checked in SQL). Never crosses projects.
-        if (chatCtx.projectId && chatId) {
-          const pm = await loadProjectMemory(caller.user.id, chatCtx.projectId, chatId, lastText);
-          if (pm) system += `\n\n${pm}`;
-        }
-        // Permanent memory: personal facts. Never injected into "project"-scope chats (no personal leak).
-        // Every save/delete is confirmed to the model only after D1 reports success.
-        if (includesPersonal(chatCtx.scope) && lastText.trim()) {
-          const { detectMemoryCommand, detectAutoMemory, matchForget, relevantMemories, permanentMemoryBlock, memoryOutcomeNote } = await import("@/lib/ai/memory");
-          const { loadPermanentMemories, tryLoadPermanentMemories, savePermanentMemory, deletePermanentMemories } = await import("@/lib/ai/memory.server");
-          const memReq = detectMemoryCommand(lastText);
-          const note = (o: import("@/lib/ai/memory").MemoryOutcome) => { system += `\n\n${memoryOutcomeNote(o)}`; };
-          if (memReq.action === "save") {
-            const saved = await savePermanentMemory(caller.user.id, memReq.content);
-            note(!saved ? { kind: "save_failed" }
-              : saved.plan.kind === "replace" ? { kind: "updated", previous: saved.plan.previous, content: saved.memory.content }
-              : { kind: "saved", content: saved.memory.content });
-          } else if (memReq.action === "forget_all") {
-            const n = await deletePermanentMemories(caller.user.id, "all");
-            note(n === null ? { kind: "forget_all_failed" } : { kind: "forgot_all", count: n });
-          } else if (memReq.action === "forget") {
-            const list = await tryLoadPermanentMemories(caller.user.id);
-            const match = list ? matchForget(list, memReq.query) : null;
-            if (!match) note({ kind: "lookup_failed" });
-            else if (match.kind === "one") {
-              const n = await deletePermanentMemories(caller.user.id, [match.memory.id]);
-              note(n ? { kind: "forgot", content: match.memory.content } : { kind: "forget_failed", content: match.memory.content });
-            } else if (match.kind === "ambiguous") note({ kind: "forget_ambiguous", candidates: match.candidates.map((m) => m.content) });
-            else note({ kind: "forget_none", query: memReq.query });
-          } else if (memReq.action === "none" && chatCtx.owned && !chatCtx.projectId) {
-            // Auto-capture stable first-person facts silently; project chats and unsaved/incognito chats never auto-save.
-            const fact = detectAutoMemory(lastText);
-            if (fact) await savePermanentMemory(caller.user.id, fact, "auto");
+        // Memory runs lazily inside the response stream so its live statuses ("Remembering",
+        // "Saving Memory", "Updating Memory", "Deleting Memory") show only while the real
+        // database operation is in progress. Exactly one pipeline (deep or default) runs it.
+        let memoryRan = false;
+        const applyMemory = async (emitMem?: (stage: import("@/lib/ai/task-events").TaskStage, msg?: string) => void) => {
+          if (memoryRan) return;
+          memoryRan = true;
+          // Project memory: every project chat sees relevant requests/outputs from its OTHER chats in the
+          // same project (owner + project checked in SQL). Never crosses projects.
+          if (chatCtx.projectId && chatId) {
+            emitMem?.("remembering");
+            const pm = await loadProjectMemory(caller.user.id, chatCtx.projectId, chatId, lastText);
+            if (pm) system += `\n\n${pm}`;
           }
-          const all = memReq.action === "forget" || memReq.action === "forget_all" ? [] : await loadPermanentMemories(caller.user.id);
-          if (memReq.action === "recall") {
-            system += all.length
-              ? `\n\n${permanentMemoryBlock(all.slice(0, 20))}\nThe user asked what you remember. List these facts honestly.`
-              : `\n\nThe user asked what you remember about them, but permanent memory is empty. Say so honestly; do not invent memories.`;
-          } else if (all.length) {
-            const rel = relevantMemories(all, lastText);
-            if (rel.length) system += `\n\n${permanentMemoryBlock(rel)}`;
+          // Permanent memory: personal facts. Never injected into "project"-scope chats (no personal leak).
+          // Every save/delete is confirmed to the model only after D1 reports success.
+          if (includesPersonal(chatCtx.scope) && lastText.trim()) {
+            const { detectMemoryCommand, detectAutoMemory, matchForget, relevantMemories, permanentMemoryBlock, memoryOutcomeNote } = await import("@/lib/ai/memory");
+            const { loadPermanentMemories, tryLoadPermanentMemories, savePermanentMemory, deletePermanentMemories } = await import("@/lib/ai/memory.server");
+            const memReq = detectMemoryCommand(lastText);
+            const note = (o: import("@/lib/ai/memory").MemoryOutcome) => { system += `\n\n${memoryOutcomeNote(o)}`; };
+            if (memReq.action === "save") {
+              emitMem?.("saving_memory");
+              const saved = await savePermanentMemory(caller.user.id, memReq.content);
+              note(!saved ? { kind: "save_failed" }
+                : saved.plan.kind === "replace" ? { kind: "updated", previous: saved.plan.previous, content: saved.memory.content }
+                : { kind: "saved", content: saved.memory.content });
+            } else if (memReq.action === "forget_all") {
+              emitMem?.("deleting_memory");
+              const n = await deletePermanentMemories(caller.user.id, "all");
+              note(n === null ? { kind: "forget_all_failed" } : { kind: "forgot_all", count: n });
+            } else if (memReq.action === "forget") {
+              emitMem?.("remembering");
+              const list = await tryLoadPermanentMemories(caller.user.id);
+              const match = list ? matchForget(list, memReq.query) : null;
+              if (!match) note({ kind: "lookup_failed" });
+              else if (match.kind === "one") {
+                emitMem?.("deleting_memory");
+                const n = await deletePermanentMemories(caller.user.id, [match.memory.id]);
+                note(n ? { kind: "forgot", content: match.memory.content } : { kind: "forget_failed", content: match.memory.content });
+              } else if (match.kind === "ambiguous") note({ kind: "forget_ambiguous", candidates: match.candidates.map((m) => m.content) });
+              else note({ kind: "forget_none", query: memReq.query });
+            } else if (memReq.action === "none" && chatCtx.owned && !chatCtx.projectId) {
+              // Auto-capture stable first-person facts silently; project chats and unsaved/incognito chats never auto-save.
+              const fact = detectAutoMemory(lastText);
+              if (fact) await savePermanentMemory(caller.user.id, fact, "auto");
+            }
+            if (memReq.action !== "forget" && memReq.action !== "forget_all") emitMem?.("remembering");
+            const all = memReq.action === "forget" || memReq.action === "forget_all" ? [] : await loadPermanentMemories(caller.user.id);
+            if (memReq.action === "recall") {
+              system += all.length
+                ? `\n\n${permanentMemoryBlock(all.slice(0, 20))}\nThe user asked what you remember. List these facts honestly.`
+                : `\n\nThe user asked what you remember about them, but permanent memory is empty. Say so honestly; do not invent memories.`;
+            } else if (all.length) {
+              const rel = relevantMemories(all, lastText);
+              if (rel.length) system += `\n\n${permanentMemoryBlock(rel)}`;
+            }
           }
-        }
+        };
         let contentIntent: import("@/lib/ai/content-intent").IntentResult | null = null;
         // Content intent (copy-ready deliverable / code / data / normal answer) shapes the output format only.
         {
@@ -141,11 +155,10 @@ export const Route = createFileRoute("/api/chat")({
             system += `\n\n${sourcesBlock(s.results, s.status, s.failed)}`;
           } catch (e) { console.error("[search]", e); system += "\n\nLive web search was unavailable; say so in the answer."; }
         };
-        // Deep/Research paths search up front; the default task pipeline searches inside its stream so the status is live.
-        if (task.executionMode !== "default") await runSearch();
+        // All paths search inside their stream so the Searching/Reading statuses are live.
         // Deep Thinking Mode: deterministic analysis; complex requests go through the bounded verify/correct pipeline.
         let deepAnalysis: import("@/lib/ai/deep/analyze").RequestAnalysis | null = null;
-        const baseSystem = system;
+        let baseSystem = system;
         if (task.executionMode === "deep") {
           const { analyzeRequest } = await import("@/lib/ai/deep/analyze");
           const { planAddendum } = await import("@/lib/ai/deep/pipeline");
@@ -181,7 +194,8 @@ export const Route = createFileRoute("/api/chat")({
           }
         }
         if (budgeted.dropped) system += `\n\nNote: ${budgeted.dropped} older message(s) were left out to fit the context budget; if the user refers to them and no referenced source is attached, say you can't see them instead of guessing.`;
-        const fullMessages = [{ role: "system", content: system }, ...messages];
+        // The final system prompt is only complete after applyMemory runs inside the stream;
+        // each pipeline builds its own message list there.
 
         if (deepAnalysis && !lastHasMedia) {
           const { runDeepPipeline } = await import("@/lib/ai/deep/pipeline");
@@ -207,7 +221,7 @@ export const Route = createFileRoute("/api/chat")({
               const put = (b: Uint8Array) => { try { ctrl.enqueue(b); } catch { /* closed */ } };
               const { trackGeneration } = await import("@/lib/ai/generation-store.server");
               const gen = chatId ? trackGeneration(caller.user.id, chatId, requestId) : null;
-              const DEEP_STAGE: Record<string, any> = { analyzing: "analyzing_requirements", planning: "planning", generating: "writing", verifying: "verifying_accuracy", correcting: "fixing_issues", validating: "validating_requirements", assembling: "building_output", retrying: "retrying" };
+              const DEEP_STAGE: Record<string, any> = { analyzing: "analyzing_requirements", planning: "planning", generating: "writing", verifying: "verifying_accuracy", correcting: "fixing_issues", validating: "validating_requirements", assembling: "building_output", retrying: "retrying", remembering: "remembering", saving_memory: "saving_memory", updating_memory: "updating_memory", deleting_memory: "deleting_memory", researching: "searching_web", reading: "reading_sources" };
               let outcome: { status: "completed" | "failed" | "cancelled"; error?: string } = { status: "failed", error: "No result was generated" };
               const ping = setInterval(() => put(sseComment("thinking")), 8000);
               put(sseComment("thinking"));
@@ -215,6 +229,12 @@ export const Route = createFileRoute("/api/chat")({
                 const t0 = Date.now();
                 const progress = (stage: string, detail?: string) => { if (DEEP_STAGE[stage]) gen?.stage(DEEP_STAGE[stage], detail); put(sseStatus(stage, detail)); };
                 providerProgress = progress;
+                progress("thinking");
+                // Memory and search run here, live: their statuses stream while the real operations run.
+                await applyMemory((s) => progress(s));
+                await runSearch((s, msg) => progress(s === "searching_web" ? "researching" : "reading", msg));
+                baseSystem = system;
+                const fullMessages = [{ role: "system", content: system }, ...messages];
                 const { shouldDecompose, runDeepEngine } = await import("@/lib/ai/deep/engine");
                 if (shouldDecompose(deepAnalysis)) {
                   const { d1ExecutionStore } = await import("@/lib/ai/deep/store.server");
@@ -290,7 +310,9 @@ export const Route = createFileRoute("/api/chat")({
             const ping = setInterval(() => send(": working\n\n"), 8000);
             try {
               emit("thinking");
-              if (retrieved) emit("retrieving_context", retrieved.slice(0, 120));
+              if (retrieved) emit("finding", retrieved.slice(0, 120));
+              // Memory runs live so Saving/Updating/Deleting Memory and Remembering show only while they happen.
+              await applyMemory((s, m) => emit(s, m));
               const analysis = analyzeRequest(lastText);
               emit(lastHasMedia ? "analyzing_files" : analysis.items || analysis.complex ? "analyzing_requirements" : "understanding_request", analysis.items ? `${analysis.items.count} ${analysis.items.noun}${analysis.items.count === 1 ? "" : "s"} requested` : undefined);
               await runSearch((stage, msg) => emit(stage, msg));
