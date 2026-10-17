@@ -10,7 +10,7 @@ const MAX_CONCURRENT = 3;
 const CHUNK_ATTEMPTS = 3;
 const CATALOG_TOKENS = 8000;
 
-type Call = (messages: unknown[], maxTokens: number) => Promise<{ ok: boolean; text: string; reason?: string }>;
+type Call = (messages: unknown[], maxTokens: number) => Promise<{ ok: boolean; text?: string; reason?: string }>;
 const defaultCall: Call = async (messages, maxTokens) => {
   const { orchestrateText } = await import("@/lib/ai/orchestrator.server");
   return orchestrateText(messages, { maxTokens, deep: false, taskId: "long-context" });
