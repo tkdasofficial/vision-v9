@@ -117,9 +117,18 @@ export async function runPipeline(userId: string, requestId: string, prompt: str
 /** Stale recovery fails a job with no update for 3 minutes; long provider calls need heartbeats. */
 export const JOB_HEARTBEAT_MS = 30_000;
 
-export async function runLongContext(job: JobRun, input: { prompt?: string }, heartbeatMs = JOB_HEARTBEAT_MS) {
+/** Runs `run` while refreshing the job's updated_at, so a live long job is never recovered as interrupted. */
+export async function withJobHeartbeat<T>(job: Pick<JobRun, "touch">, heartbeatMs: number, run: () => Promise<T>): Promise<T> {
   const heartbeat = setInterval(() => { job.touch().catch(() => undefined); }, heartbeatMs);
   try {
+    return await run();
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+export function runLongContext(job: JobRun, input: { prompt?: string }, heartbeatMs = JOB_HEARTBEAT_MS) {
+  return withJobHeartbeat(job, heartbeatMs, async () => {
     const prompt = input.prompt?.trim();
     if (!prompt) throw new Error("Describe what you want generated.");
     const { sandboxReady } = await import("@/lib/sandbox/db.server");
