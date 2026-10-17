@@ -221,7 +221,7 @@ export const Route = createFileRoute("/api/chat")({
               const put = (b: Uint8Array) => { try { ctrl.enqueue(b); } catch { /* closed */ } };
               const { trackGeneration } = await import("@/lib/ai/generation-store.server");
               const gen = chatId ? trackGeneration(caller.user.id, chatId, requestId) : null;
-              const DEEP_STAGE: Record<string, any> = { analyzing: "analyzing_requirements", planning: "planning", generating: "writing", verifying: "verifying_accuracy", correcting: "fixing_issues", validating: "validating_requirements", assembling: "building_output", retrying: "retrying" };
+              const DEEP_STAGE: Record<string, any> = { analyzing: "analyzing_requirements", planning: "planning", generating: "writing", verifying: "verifying_accuracy", correcting: "fixing_issues", validating: "validating_requirements", assembling: "building_output", retrying: "retrying", remembering: "remembering", saving_memory: "saving_memory", updating_memory: "updating_memory", deleting_memory: "deleting_memory", researching: "searching_web", reading: "reading_sources" };
               let outcome: { status: "completed" | "failed" | "cancelled"; error?: string } = { status: "failed", error: "No result was generated" };
               const ping = setInterval(() => put(sseComment("thinking")), 8000);
               put(sseComment("thinking"));
@@ -229,6 +229,12 @@ export const Route = createFileRoute("/api/chat")({
                 const t0 = Date.now();
                 const progress = (stage: string, detail?: string) => { if (DEEP_STAGE[stage]) gen?.stage(DEEP_STAGE[stage], detail); put(sseStatus(stage, detail)); };
                 providerProgress = progress;
+                progress("thinking");
+                // Memory and search run here, live: their statuses stream while the real operations run.
+                await applyMemory((s) => progress(s));
+                await runSearch((s, msg) => progress(s === "searching_web" ? "researching" : "reading", msg));
+                baseSystem = system;
+                const fullMessages = [{ role: "system", content: system }, ...messages];
                 const { shouldDecompose, runDeepEngine } = await import("@/lib/ai/deep/engine");
                 if (shouldDecompose(deepAnalysis)) {
                   const { d1ExecutionStore } = await import("@/lib/ai/deep/store.server");
