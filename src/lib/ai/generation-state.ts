@@ -34,6 +34,15 @@ export function appendStage(history: TaskStage[], stage: TaskStage): TaskStage[]
   return history[history.length - 1] === stage ? history : [...history, stage].slice(-40);
 }
 
+/**
+ * A question routed to a backend job (file creation, conversion, project) is answered by the job
+ * card, never by a chat_messages assistant row or a chat_generations record. The reconnect poller
+ * must treat a job created at/after the question as the answer and stop showing "Thinking".
+ */
+export function questionAnsweredByJob(jobs: { createdAt: string }[], sentAt: number, slackMs = 60_000): boolean {
+  return jobs.some((j) => Number.isFinite(Date.parse(j.createdAt)) && Date.parse(j.createdAt) >= sentAt - slackMs);
+}
+
 /** User-facing note for a generation that ended without an answer. */
 export function endedWithoutAnswer(v: GenerationView): string | null {
   if (v.status === "failed") return v.error ? `The answer couldn't be finished: ${v.error}` : "The answer couldn't be finished. Please try again.";
