@@ -18,6 +18,12 @@ export function routeRequest(content: string, mode: ChatMode = "default"): Reque
   // Deep Thinking, Research and Coding always answer in chat.
   if (mode !== "default") return { kind: "chat" };
   const short = content.length <= SHORT;
+  // A literal workbook delivery request is executable even inside a long brief.
+  // Generic long briefs and requests for a specification still remain written answers.
+  if (/\b(?:create|generate|build|deliver|produce|export)\b/i.test(content) && /\b(?:xlsx|excel workbook)\b/i.test(content) && !/\b(?:specification only|blueprint only|explain how|do not create|don't create)\b/i.test(content)) {
+    if (/\bSales_Data\b/i.test(content) && /\bRegional_Analysis\b/i.test(content)) return { kind: "long_context" };
+    if (/\bdeliver\b.{0,50}\bxlsx\b/i.test(content)) return { kind: "tool" };
+  }
   // Large dataset/table generation goes through the Long Context Generation pipeline.
   if (/\b\d{3,}\s*(?:distinct\s+|unique\s+|fictional\s+)*(?:records?|rows?|products?|entries|items)\b/i.test(content) && /\b(excel|xlsx|spreadsheet|workbook|catalog|dataset|csv)\b/i.test(content)) return { kind: "long_context" };
   // Hindi document requests use native verbs, not English-only create/make triggers.

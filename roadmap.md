@@ -1,5 +1,12 @@
 # Roadmap — Memory, Output Control, Artifacts & Activity Tracking
 
+## Current request — Repair memory and Excel generation
+- [ ] Review latest app conversations and identify memory/file-generation failures.
+- [ ] Repair chat-level and permanent-memory paths with regression tests.
+- [ ] Repair XLSX generation and long-running execution with regression tests.
+- [ ] Run regression suite and check automatic build results.
+- [ ] Verify signed-in chat recall, new-chat permanent recall, workbook download and reload recovery; requires an available user session.
+
 ## Current request — vision-sandbox D1 + long-context generation
 - [x] Created "vision-sandbox" D1 (id 4d8098d8-e148-46ea-9e79-b4d35c148c8f), SANDBOX_DB binding in wrangler.toml; schema applied local + remote (6 tables verified live).
 - [x] Schema in db/migrations/0001_vision_sandbox.sql: generation_jobs/plans/chunks/context/events/outputs with PKs, FKs, indexes, UNIQUE(job_id, seq), status checks.

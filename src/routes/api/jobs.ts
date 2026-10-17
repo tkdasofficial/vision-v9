@@ -44,7 +44,8 @@ export const Route = createFileRoute("/api/jobs")({
           if (!ID_RE.test(id)) return Response.json({ error: "Invalid job id." }, { status: 400 });
           if (form?.get("type") === "agent_task") {
             const files = (form.getAll("file").filter((f) => f instanceof File) as File[]);
-            const prompt = String(form.get("prompt") ?? "").slice(0, 8000);
+             const prompt = String(form.get("prompt") ?? "");
+             if (prompt.length > 80000) return Response.json({ error: "The referenced content is too large for this task." }, { status: 413 });
             if (!prompt.trim() && !files.length) return Response.json({ error: "Tell me what to do." }, { status: 400 });
             if (files.length > MAX_AGENT_FILES) return Response.json({ error: `Up to ${MAX_AGENT_FILES} files at a time.` }, { status: 413 });
             if (files.reduce((n, f) => n + f.size, 0) > MAX_AGENT_BYTES) return Response.json({ error: "Attached files can total up to 25 MB." }, { status: 413 });
@@ -69,7 +70,8 @@ export const Route = createFileRoute("/api/jobs")({
         const body: any = await request.json().catch(() => null);
         if (!body || !ID_RE.test(String(body.id)) || !TYPES.includes(body.type) || body.type === "zip_analyze") return Response.json({ error: "Invalid request." }, { status: 400 });
         const i = body.input ?? {};
-        const input = body.type === "agent_task" || body.type === "long_context" ? { prompt: str(i.prompt, 8000) ?? "" } : body.type === "code_export"
+        if (typeof i.prompt === "string" && i.prompt.length > 80000) return Response.json({ error: "The referenced content is too large for this task." }, { status: 413 });
+        const input = body.type === "agent_task" || body.type === "long_context" ? { prompt: str(i.prompt, 80000) ?? "" } : body.type === "code_export"
           ? { prompt: str(i.prompt, 8000), language: str(i.language, 30), filename: str(i.filename, 120), code: str(i.code, 500_000) }
           : { prompt: str(i.prompt, 8000) ?? "", stack: str(i.stack, 30), name: str(i.name, 60) };
         try {

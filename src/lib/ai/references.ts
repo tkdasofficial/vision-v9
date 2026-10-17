@@ -10,7 +10,7 @@ export type Resolution =
   | { kind: "ambiguous"; label: string; question: string };
 
 const ORD: Record<string, number> = { first: 1, "1st": 1, second: 2, "2nd": 2, third: 3, "3rd": 3, fourth: 4, "4th": 4, fifth: 5, "5th": 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10 };
-const ASSIST = "(?:response|answer|reply|message|output|story|poem|draft|version|result)";
+const ASSIST = "(?:response|answer|reply|message|output|generation|story|poem|draft|version|result|workbook|webbook|spreadsheet)";
 const textOf = (c: unknown) => (typeof c === "string" ? c : Array.isArray(c) ? c.map((p: any) => p?.text ?? "").join(" ") : "");
 const isNotice = (t: string) => /^(Working on it|Writing your file|Building your project|Here's (your|the) (file|result|project))/i.test(t.trim()) || !t.trim();
 
@@ -53,15 +53,15 @@ export function resolveReference(request: string, history: ConvMsg[]): Resolutio
   if (/\b(previous|last|above|prior)\s+(?:answer|response|reply|one)\b|\bwhere (?:we|you) (?:stopped|left off)\b|\bwhat you (?:just )?(?:said|wrote)\b/.test(t)) return pick(assistants, -1, "assistant", "previous answer");
   // "make a PDF of the story", "export this poem", "convert it to PDF" → the most recent matching content in this chat.
   if (isContentAction(t) && assistants.length) {
-    const nm = /\b(?:the|that|this|your|above)\s+(story|poem|essay|article|script|letter|report|summary|answer|response|content|text)\b/.exec(t);
+    const nm = /\b(?:the|that|this|your|above)\s+(story|poem|essay|article|script|letter|report|summary|answer|response|content|text|workbook|webbook|spreadsheet)\b/.exec(t);
     if (nm) {
-      const noun = nm[1];
+      const noun = nm[1] === "webbook" ? "workbook" : nm[1];
       const generic = /answer|response|content|text/.test(noun);
       const hit = generic ? null : [...assistants].reverse().find((a) => new RegExp(`\\b${noun}`, "i").test(a.text) || (noun === "story" && a.text.length > 400));
       if (hit) return { kind: "found", role: "assistant", ordinal: assistants.indexOf(hit) + 1, index: hit.i, id: hit.m.id, content: hit.text, label: nm[0] };
       return pick(assistants, -1, "assistant", nm[0]);
     }
-    if (/\b(?:of|from|into|convert|export|download)\s+(?:it|this|that)\b|\b(?:it|this|that)\s+(?:as|into|to)\s+(?:a\s+)?(?:pdf|docx?|word|txt|file)\b/.test(t)) return pick(assistants, -1, "assistant", "previous answer");
+    if (/\b(?:of|from|into|convert|export|download)\s+(?:it|this|that)\b|\b(?:it|this|that)\s+(?:as|into|to)\s+(?:a\s+)?(?:pdf|docx?|word|txt|csv|xlsx|file)\b/.test(t)) return pick(assistants, -1, "assistant", "previous answer");
   }
   return { kind: "none" };
 }
