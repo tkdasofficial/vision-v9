@@ -6,6 +6,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import { useCopy } from "@/components/chat/use-copy";
 import { compareTableValues, tableToCsv, type TableSort } from "@/lib/table-export";
+import { exportToDrive } from '@/lib/drive-export';
 
 type Node = { type: string; value?: string; tagName?: string; children?: Node[] };
 const BR = /<br\s*\/?>/gi;
@@ -100,12 +101,7 @@ export default function TableReply({ children, node, markdown }: { children: Rea
     setSort((current) => current?.column === column ? current.direction === "ascending" ? { column, direction: "descending" } : null : { column, direction: "ascending" });
   }
   function download() {
-    const url = URL.createObjectURL(new Blob(["\uFEFF", tableToCsv([labels, ...order.map((index) => values[index] ?? [])])], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "vision-table.csv";
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    void exportToDrive(new Blob(["\uFEFF", tableToCsv([labels, ...order.map((index) => values[index] ?? [])])], { type: "text/csv;charset=utf-8" }), 'vision-table.csv');
   }
   return (
     <section aria-label="Table output" className="content-block not-prose my-3 w-full min-w-0 max-w-full">

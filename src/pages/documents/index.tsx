@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "@/lib/router-compat";
 import { getDocumentFn, type DocumentResult } from "@/lib/cloud/documents.functions";
 import { buildReportPdf, pdfFilename } from "@/lib/research-pdf";
+import { persistExport } from '@/lib/drive-export';
+import { downloadFile } from '@/lib/download';
 
 const prose = "max-w-none text-sm leading-7 [&_h1]:font-display [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3 [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:font-semibold [&_h3]:mt-4 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:bg-accent [&_th]:px-2 [&_th]:py-1 [&_a]:underline";
 
@@ -34,10 +36,7 @@ export default function DocumentPreview() {
     try {
       const file = await makePdf();
       if (!file) return;
-      const url = URL.createObjectURL(file);
-      const a = document.createElement("a");
-      a.href = url; a.download = file.name; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      await downloadFile(await persistExport(file, file.name), file.name);
     } catch { toast.error("Couldn't create the PDF."); }
     finally { setBusy(false); }
   };
@@ -47,6 +46,7 @@ export default function DocumentPreview() {
     const url = window.location.href;
     try {
       const file = await makePdf();
+      if (file) await persistExport(file, file.name);
       if (file && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: doc.title });
       else if (navigator.share) await navigator.share({ title: doc.title, url });
       else { await navigator.clipboard.writeText(url); toast.success("Link copied. Only you can open it while signed in."); }

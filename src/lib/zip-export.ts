@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { exportToDrive } from './drive-export';
 import type { GeneratedFile } from "./web-preview-engine";
 
 export async function downloadProjectAsZip(
@@ -31,14 +32,7 @@ export async function downloadProjectAsZip(
 
   // Generate and download
   const blob = await zip.generateAsync({ type: "blob" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${projectName}.zip`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  await exportToDrive(blob, `${projectName}.zip`);
 }
 
 function generatePackageJson(

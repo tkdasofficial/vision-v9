@@ -60,8 +60,8 @@ export const Route = createFileRoute("/api/files")({
           const record = await storeFile(caller.user.id, file.name, file.type, new Uint8Array(await file.arrayBuffer()), project);
           return Response.json({ file: record });
         } catch (e) {
-          console.error("[files] upload failed", e);
-          return Response.json({ error: "Upload failed. Please try again." }, { status: 500 });
+          const { safeError } = await import("@/lib/jobs/jobs.server");
+          return Response.json({ error: safeError(e) }, { status: 502 });
         }
       },
 
