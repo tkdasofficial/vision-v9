@@ -3,7 +3,8 @@
 // validated result as a real file artifact. Resumable: completed chunks are never
 // regenerated; a retry of the job resumes the same sandbox job via requestId.
 import type { JobRun } from "./jobs.server";
-import { CATALOG_COLUMNS, catalogChunkMessages, catalogOutline, normalizeRecord, parseRecords, rowCountFor, validateCatalog, wantsWorkbook, XLSX_STYLE_INTEGER, XLSX_STYLE_ONE_DECIMAL, XLSX_STYLE_PRICE } from "./long-context";
+import { CATALOG_COLUMNS, catalogChunkMessages, catalogOutline, normalizeRecord, parseRecords, rowCountFor, validateCatalog, wantsWorkbook } from "./long-context";
+import { XLSX_STYLE_INTEGER, XLSX_STYLE_ONE_DECIMAL, XLSX_STYLE_PRICE } from "@/lib/tools/office";
 
 export const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const MAX_CONCURRENT = 3;
