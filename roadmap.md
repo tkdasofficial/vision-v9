@@ -1,5 +1,14 @@
 # Roadmap — Memory, Output Control, Artifacts & Activity Tracking
 
+## Current request — vision-sandbox D1 + long-context generation
+- [ ] Create "vision-sandbox" D1 database, bind as SANDBOX_DB in wrangler.toml, apply migrations local + remote.
+- [ ] Schema: generation_jobs/plans/chunks/context/events/outputs with keys, indexes, uniqueness.
+- [ ] Generation pipeline: plan → chunked generation → retry/resume → assemble → validate → complete.
+- [ ] API endpoints: create, status, chunks, retry, resume, cancel, output — owner-scoped.
+- [ ] Tests (mocked D1 + providers), full suite, build; report deployment steps still required.
+
+# Roadmap — Memory, Output Control, Artifacts & Activity Tracking
+
 ## Current request — Private Google Drive storage
 - [x] Audit output capabilities and storage paths; reconcile 115 canonical writable formats.
 - [x] Replace final-file D1 fallback with private Drive; preserve bounded runtime staging and legacy downloads; integrate browser exports.
