@@ -102,11 +102,16 @@ export async function storePrivate(name: string, mime: string, bytes: Uint8Array
   // A reserved ID makes retries safe even after an interrupted response or metadata write.
   const existing = await fetch(`${BASE}/files/${encodeURIComponent(row.id)}?fields=id,size&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
   if (existing.status !== 404 && !existing.ok) { await existing.body?.cancel(); throw new DriveError(existing.status, 'upload reconciliation'); }
-  if (existing.ok) { const back = new Uint8Array(await (await readPrivate(row.id)).arrayBuffer()); if (back.length !== bytes.length || await digest(back) !== hash) throw new Error('Stored file integrity mismatch.'); }
-  else {
+  let complete = false;
+  if (existing.ok) { const back = new Uint8Array(await (await readPrivate(row.id)).arrayBuffer()); complete = back.length === bytes.length && await digest(back) === hash; }
+  if (!complete) {
     await existing.body?.cancel();
     const uploadTag = await digest(new TextEncoder().encode(identity));
-    const start = await driveFetch(token, 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Upload-Content-Type': mime, 'X-Upload-Content-Length': String(bytes.length) }, body: JSON.stringify({ id: row.id, name: row.name, parents: [parent], appProperties: { visionUpload: uploadTag } }) }, true);
+    // An interrupted session can leave a partial file behind. Restart its media on the
+    // same reserved ID, not a second file; only our unpublished reservation is mutable.
+    const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files${existing.ok ? `/${encodeURIComponent(row.id)}` : ''}?uploadType=resumable&supportsAllDrives=true`;
+    const metadata = existing.ok ? { name: row.name, appProperties: { visionUpload: uploadTag } } : { id: row.id, name: row.name, parents: [parent], appProperties: { visionUpload: uploadTag } };
+    const start = await driveFetch(token, uploadUrl, { method: existing.ok ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json', 'X-Upload-Content-Type': mime, 'X-Upload-Content-Length': String(bytes.length) }, body: JSON.stringify(metadata) }, true);
     if (start.status === 409) throw new Error('Another upload is saving this file. Please retry.');
     const location = start.headers.get('Location');
     if (!location || !location.startsWith('https://www.googleapis.com/')) throw new Error('Google Drive did not provide a safe upload destination.');

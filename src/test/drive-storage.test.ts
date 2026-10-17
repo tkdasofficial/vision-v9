@@ -18,8 +18,12 @@ function googleMock() {
     const url = String(input); const method = init.method || 'GET'; requests.push({ url, method, body: init.body });
     if (url.includes('oauth2.googleapis.com')) return Response.json({ access_token: 'mock-token' });
     if (url.includes('generateIds')) return Response.json({ ids: [`id${++sequence}`] });
-    if (url.includes('uploadType=resumable')) { const meta = JSON.parse(init.body); const location = `https://www.googleapis.com/session/${meta.id}`; files.set(meta.id, meta); sessions.set(location, meta.id); return new Response(null, { headers: { Location: location } }); }
-    if (sessions.has(url)) { contents.set(sessions.get(url) || '', new Uint8Array(init.body)); return Response.json({ id: sessions.get(url) }); }
+    if (url.includes('uploadType=resumable')) { const meta = JSON.parse(init.body); const id = meta.id || new URL(url).pathname.split('/').pop(); const location = `https://www.googleapis.com/session/${id}`; files.set(id, { ...files.get(id), ...meta, id }); sessions.set(location, id); contents.set(id, new Uint8Array()); return new Response(null, { headers: { Location: location } }); }
+    if (sessions.has(url)) {
+      const id = sessions.get(url) || ''; const previous = contents.get(id) ?? new Uint8Array(); const chunk = new Uint8Array(init.body); const all = new Uint8Array(previous.length + chunk.length); all.set(previous); all.set(chunk, previous.length); contents.set(id, all);
+      const range = String(init.headers['Content-Range']); const total = Number(range.split('/').pop());
+      return all.length < total ? new Response(null, { status:308 }) : Response.json({ id });
+    }
     const u = new URL(url); const id = u.pathname.split('/').pop() || '';
     if (id === 'files' && method === 'POST') { const meta = JSON.parse(init.body); if (files.has(meta.id)) return new Response(null, { status: 409 }); files.set(meta.id, meta); return Response.json(meta); }
     if (id === 'files') { const q = u.searchParams.get('q') || ''; const parent = q.match(/^'([^']+)'/)?.[1]; const name = q.match(/name='([^']+)'/)?.[1]; return Response.json({ files: [...files.values()].filter(f => f.parents?.includes(parent) && f.name === name).map(f => ({ id: f.id })) }); }
@@ -92,6 +96,21 @@ describe('private upload, verification and recovery', () => {
     expect(requests.filter(r => r.url.includes('uploadType=resumable'))).toHaveLength(1);
   });
   it('does not upload when the metadata reservation fails', async () => { db.fail = true; await expect(storePrivate('a.txt','text/plain',bytes)).rejects.toThrow('D1 unavailable'); expect(contents.size).toBe(0); });
+  it('restarts an interrupted partial upload on the original reserved ID', async () => {
+    const id = await storePrivate('a.txt','text/plain',bytes,'partial','u1'); const key = 'drive:v2:upload:partial'; const row = JSON.parse(db.rows.get(key) || '{}'); row.state = 'reserved'; db.rows.set(key, JSON.stringify(row)); contents.set(id,new Uint8Array([1]));
+    expect(await storePrivate('a.txt','text/plain',bytes,'partial','u1')).toBe(id);
+    expect(requests.some(r => r.method === 'PATCH' && r.url.includes(`/files/${id}?uploadType=resumable`))).toBe(true);
+    expect(Array.from(contents.get(id) ?? [])).toEqual(Array.from(bytes));
+  });
+  it('completes multiple resumable chunks including an intermediate 308 response', async () => {
+    const large = new Uint8Array(4 * 1024 * 1024 + 7); large[large.length-1] = 42;
+    const id = await storePrivate('a.zip','application/zip',large,'large','u1');
+    expect(contents.get(id)?.length).toBe(large.length); expect(contents.get(id)?.at(-1)).toBe(42);
+    expect(requests.filter(r => r.method === 'PUT')).toHaveLength(2);
+  });
+  it('supports empty text outputs without reporting an incomplete session', async () => {
+    const id = await storePrivate('empty.txt','text/plain',new Uint8Array(),'empty','u1'); expect(contents.get(id)?.length).toBe(0);
+  });
   it('does not accept a retry with changed content or another owner', async () => {
     await storePrivate('a.txt','text/plain',bytes,'stable','u1');
     await expect(storePrivate('a.txt','text/plain',new Uint8Array([1]),'stable','u1')).rejects.toThrow('does not match');
