@@ -94,7 +94,7 @@ function fakeCall(seen: string[], failSections: number[] = []) {
     const [start, end, cat] = [Number(m[1]), Number(m[2]), m[3]];
     seen.push(`${start}-${end}`);
     if (failSections.includes(start)) return { ok: false as const, reason: "provider unavailable" };
-    const rows = []; for (let i = start; i <= end; i++) rows.push(fakeRecord(i, cat));
+    const rows: Record<string, unknown>[] = []; for (let i = start; i <= end; i++) rows.push(fakeRecord(i, cat));
     return { ok: true as const, text: JSON.stringify(rows) };
   };
 }

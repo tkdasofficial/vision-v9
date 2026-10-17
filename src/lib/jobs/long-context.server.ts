@@ -47,7 +47,10 @@ export async function runPipeline(userId: string, requestId: string, prompt: str
     if (excel) outline = catalogOutline(totalRows);
     else {
       const { planOutline } = await import("@/lib/sandbox/runner.server");
-      outline = await planOutline(prompt, async (m, t) => call(m, t), new AbortController().signal);
+      outline = await planOutline(prompt, async (m, t) => {
+        const r = await call(m, t);
+        return r.ok ? { ok: true as const, text: r.text ?? "" } : { ok: false as const, status: 502, reason: r.reason ?? "provider unavailable" };
+      }, new AbortController().signal);
     }
     plan = gen.buildPlan(prompt, outline, excel ? { chunkTargetTokens: CATALOG_TOKENS } : {});
     await store.savePlan(userId, sjob.id, plan, db);
