@@ -18,6 +18,8 @@ export function routeRequest(content: string, mode: ChatMode = "default"): Reque
   // Deep Thinking, Research and Coding always answer in chat.
   if (mode !== "default") return { kind: "chat" };
   const short = content.length <= SHORT;
+  // Large dataset/table generation goes through the Long Context Generation pipeline.
+  if (/\b\d{3,}\s*(?:distinct\s+|unique\s+|fictional\s+)*(?:records?|rows?|products?|entries|items)\b/i.test(content) && /\b(excel|xlsx|spreadsheet|workbook|catalog|dataset|csv)\b/i.test(content)) return { kind: "long_context" };
   // Hindi document requests use native verbs, not English-only create/make triggers.
   if (short && /(?:बना(?:ओ|एँ|एं|इए|ना)|तैयार\s+कर|सेव\s+कर|बदल(?:ो|ें)|निर्यात)/u.test(content) && /\b(?:pdf|docx|xlsx|csv|epub)\b|पीडीएफ|दस्तावेज़/u.test(content.toLowerCase())) return { kind: "tool" };
 

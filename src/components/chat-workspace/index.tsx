@@ -255,10 +255,10 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   }, [chatId, user, isIncognito]);
 
   /** Runs a backend job and keeps one assistant message in this chat updated with its live status. */
-  const runInlineJob = useCallback(async (type: "project_generate" | "code_export" | "agent_task", input: Record<string, unknown>, sessionId: string | null, files?: File[]) => {
+  const runInlineJob = useCallback(async (type: "project_generate" | "code_export" | "agent_task" | "long_context", input: Record<string, unknown>, sessionId: string | null, files?: File[]) => {
     const jobId = crypto.randomUUID();
     const msgId = `job-${jobId}`;
-    const done = type === "project_generate" ? "Here's your project." : type === "code_export" ? "Here's your file." : "";
+    const done = type === "project_generate" ? "Here's your project." : type === "code_export" || type === "long_context" ? "Here's your file." : "";
     trackJob(jobId, true);
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
       // While running: the work-state line only — no intro sentence, no card.
@@ -281,7 +281,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         const have = new Set(prev.map((m) => m.job?.id).filter(Boolean));
         const missing = jobs.filter((j) => !have.has(j.id)).map((j): ChatMessageType => ({
           id: `job-${j.id}`, role: "assistant", timestamp: new Date(j.createdAt), job: j,
-          content: j.status === "failed" || j.status === "timed_out" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : j.type === "agent_task" || j.type === "runtime_task" ? "Here's the result." : "Here's your file.",
+          content: j.status === "failed" || j.status === "timed_out" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : j.type === "agent_task" || j.type === "runtime_task" ? "Here's the result." : "Here's your file.", // long_context completes with a downloadable file
         }));
         if (!missing.length) return prev;
         // A task starts the instant its question is sent, but older chats saved the question a moment later
@@ -395,7 +395,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         return;
       }
       const src = ref.kind === "found" ? `\n\n${sourceBlock(ref)}` : "";
-      if (route.kind === "tool") await runInlineJob("agent_task", { prompt: content + src }, sessionId);
+      if (route.kind === "long_context") await runInlineJob("long_context", { prompt: content + src }, sessionId);
+      else if (route.kind === "tool") await runInlineJob("agent_task", { prompt: content + src }, sessionId);
       else if (route.kind === "project") await runInlineJob("project_generate", { prompt: content + src }, sessionId);
       else if (route.kind === "code_export") await runInlineJob("code_export", { prompt: content + src, language: route.language }, sessionId);
       else await runInlineJob("agent_task", { prompt: `${content}${src}\n\n(Save the result as a .${route.format} file.)` }, sessionId);
