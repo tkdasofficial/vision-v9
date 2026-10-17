@@ -23,7 +23,8 @@ export async function fetchDownload(url: string, fetcher: typeof fetch = fetch):
     const body: any = type.includes("json") ? await res.json().catch(() => null) : null;
     throw new DownloadError(body?.error || FALLBACK[res.status] || "The file couldn't be downloaded right now.", res.status, body?.code || "http");
   }
-  if (/text\/html/i.test(type) && !/\.html?$/i.test(url)) throw new DownloadError("The server sent a page instead of the file. Please try again.", res.status, "invalid_response");
+  const attachment = /attachment/i.test(res.headers.get('Content-Disposition') ?? '');
+  if (/text\/html/i.test(type) && !/\.html?$/i.test(url) && !attachment) throw new DownloadError("The server sent a page instead of the file. Please try again.", res.status, "invalid_response");
   let blob: Blob;
   try { blob = await res.blob(); }
   catch { throw new DownloadError("The download was interrupted. Please try again.", res.status, "network"); }

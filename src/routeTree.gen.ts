@@ -98,6 +98,7 @@ import { Route as VideosVideoChatIdRouteImport } from './routes/videos.$videoCha
 import { Route as ApiArtifactsArtifactIdRouteImport } from './routes/api/artifacts.$artifactId'
 import { Route as ApiJobsJobIdRouteImport } from './routes/api/jobs.$jobId'
 import { Route as ApiOauthProviderRouteImport } from './routes/api/oauth.$provider'
+import { Route as ApiStorageDriveRouteImport } from './routes/api/storage.drive'
 import { Route as AuthGithubCallbackRouteImport } from './routes/auth.github.callback'
 import { Route as AuthGithubStartRouteImport } from './routes/auth.github.start'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
@@ -551,6 +552,11 @@ const ApiOauthProviderRoute = ApiOauthProviderRouteImport.update({
   path: '/api/oauth/$provider',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStorageDriveRoute = ApiStorageDriveRouteImport.update({
+  id: '/api/storage/drive',
+  path: '/api/storage/drive',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthGithubCallbackRoute = AuthGithubCallbackRouteImport.update({
   id: '/github/callback',
   path: '/github/callback',
@@ -673,6 +679,7 @@ export interface FileRoutesByFullPath {
   '/api/artifacts/$artifactId': typeof ApiArtifactsArtifactIdRoute
   '/api/jobs/$jobId': typeof ApiJobsJobIdRoute
   '/api/oauth/$provider': typeof ApiOauthProviderRoute
+  '/api/storage/drive': typeof ApiStorageDriveRoute
   '/auth/github/callback': typeof AuthGithubCallbackRoute
   '/auth/github/start': typeof AuthGithubStartRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
@@ -767,6 +774,7 @@ export interface FileRoutesByTo {
   '/api/artifacts/$artifactId': typeof ApiArtifactsArtifactIdRoute
   '/api/jobs/$jobId': typeof ApiJobsJobIdRoute
   '/api/oauth/$provider': typeof ApiOauthProviderRoute
+  '/api/storage/drive': typeof ApiStorageDriveRoute
   '/auth/github/callback': typeof AuthGithubCallbackRoute
   '/auth/github/start': typeof AuthGithubStartRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
@@ -865,6 +873,7 @@ export interface FileRoutesById {
   '/api/artifacts/$artifactId': typeof ApiArtifactsArtifactIdRoute
   '/api/jobs/$jobId': typeof ApiJobsJobIdRoute
   '/api/oauth/$provider': typeof ApiOauthProviderRoute
+  '/api/storage/drive': typeof ApiStorageDriveRoute
   '/auth/github/callback': typeof AuthGithubCallbackRoute
   '/auth/github/start': typeof AuthGithubStartRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
@@ -964,6 +973,7 @@ export interface FileRouteTypes {
     | '/api/artifacts/$artifactId'
     | '/api/jobs/$jobId'
     | '/api/oauth/$provider'
+    | '/api/storage/drive'
     | '/auth/github/callback'
     | '/auth/github/start'
     | '/auth/google/callback'
@@ -1058,6 +1068,7 @@ export interface FileRouteTypes {
     | '/api/artifacts/$artifactId'
     | '/api/jobs/$jobId'
     | '/api/oauth/$provider'
+    | '/api/storage/drive'
     | '/auth/github/callback'
     | '/auth/github/start'
     | '/auth/google/callback'
@@ -1155,6 +1166,7 @@ export interface FileRouteTypes {
     | '/api/artifacts/$artifactId'
     | '/api/jobs/$jobId'
     | '/api/oauth/$provider'
+    | '/api/storage/drive'
     | '/auth/github/callback'
     | '/auth/github/start'
     | '/auth/google/callback'
@@ -1213,6 +1225,7 @@ export interface RootRouteChildren {
   VideosIndexRoute: typeof VideosIndexRoute
   ApiArtifactsArtifactIdRoute: typeof ApiArtifactsArtifactIdRoute
   ApiOauthProviderRoute: typeof ApiOauthProviderRoute
+  ApiStorageDriveRoute: typeof ApiStorageDriveRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1840,6 +1853,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthProviderRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/storage/drive': {
+      id: '/api/storage/drive'
+      path: '/api/storage/drive'
+      fullPath: '/api/storage/drive'
+      preLoaderRoute: typeof ApiStorageDriveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/github/callback': {
       id: '/auth/github/callback'
       path: '/github/callback'
@@ -2097,6 +2117,7 @@ const rootRouteChildren: RootRouteChildren = {
   VideosIndexRoute: VideosIndexRoute,
   ApiArtifactsArtifactIdRoute: ApiArtifactsArtifactIdRoute,
   ApiOauthProviderRoute: ApiOauthProviderRoute,
+  ApiStorageDriveRoute: ApiStorageDriveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

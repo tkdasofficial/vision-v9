@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { FileText, Download, Copy, Check, Eye, EyeOff, FileCode, FileSpreadsheet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { exportToDrive } from '@/lib/drive-export';
 
 type Props = {
   file: {
@@ -152,12 +153,7 @@ const FileCreatorCard = ({ file }: Props) => {
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.fileName;
-      a.click();
-      URL.revokeObjectURL(url);
+      await exportToDrive(blob, file.fileName);
       return;
     }
 
@@ -180,17 +176,12 @@ const FileCreatorCard = ({ file }: Props) => {
         pdf.text(line, margin, y);
         y += lineHeight;
       }
-      pdf.save(file.fileName);
+      await exportToDrive(pdf.output('blob'), file.fileName);
       return;
     }
 
     const blob = new Blob([file.content], { type: file.mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = file.fileName;
-    a.click();
-    URL.revokeObjectURL(url);
+    await exportToDrive(blob, file.fileName);
   }, [file, isExcel, excelData]);
 
   const handleCopy = useCallback(() => {

@@ -1,4 +1,5 @@
 // Language → file extension and safe filename helpers for code downloads.
+import { exportToDrive } from './drive-export';
 const EXT: Record<string, string> = {
   html: "html", htm: "html", css: "css", javascript: "js", js: "js", typescript: "ts", ts: "ts", tsx: "tsx", jsx: "jsx",
   python: "py", py: "py", json: "json", markdown: "md", md: "md", sql: "sql", xml: "xml", svg: "svg", scss: "scss", less: "less", markup: "html", yaml: "yaml", yml: "yaml",
@@ -22,10 +23,5 @@ export function filenameFor(lang?: string, suggested?: string) {
 }
 
 export function downloadText(content: string, filename: string, mime = "text/plain") {
-  const url = URL.createObjectURL(new Blob([content], { type: `${mime};charset=utf-8` }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return exportToDrive(new Blob([content], { type: `${mime};charset=utf-8` }), filename);
 }

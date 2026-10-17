@@ -3,6 +3,8 @@ import { FileType, Download, ArrowRight, CheckCircle, AlertCircle, Loader2, Refr
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { persistExport } from '@/lib/drive-export';
+import { downloadFile } from '@/lib/download';
 import {
   convertFile,
   getTargetFormats,
@@ -51,7 +53,9 @@ const FileConverterCard = ({ file }: Props) => {
 
     try {
       const res = await convertFile(file, selectedTarget, setProgress);
-      setResult(res);
+      const url = await persistExport(res.blob, res.fileName);
+      URL.revokeObjectURL(res.downloadUrl);
+      setResult({ ...res, downloadUrl: url });
     } catch (e: any) {
       setError(e.message || "Conversion failed");
     } finally {
@@ -61,10 +65,7 @@ const FileConverterCard = ({ file }: Props) => {
 
   const handleDownload = useCallback(() => {
     if (!result) return;
-    const a = document.createElement("a");
-    a.href = result.downloadUrl;
-    a.download = result.fileName;
-    a.click();
+    void downloadFile(result.downloadUrl, result.fileName).catch(e => setError(e.message));
   }, [result]);
 
   return (

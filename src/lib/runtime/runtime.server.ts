@@ -114,8 +114,8 @@ export async function syncRuntimeJob(jobRow: any): Promise<boolean> {
 
   if (rt.status === "failed") { await job.fail(new Error(rt.error || "Processing failed")); return true; }
 
-  if (rt.status === "uploaded") {
-    const claim = await d1("UPDATE runtime_jobs SET status = 'finalizing', updated_at = ? WHERE job_id = ? AND status = 'uploaded' RETURNING job_id", [now(), rt.job_id]);
+  if (rt.status === "uploaded" || (rt.status === "finalizing" && Date.now() - Date.parse(rt.updated_at) > 180_000)) {
+    const claim = await d1("UPDATE runtime_jobs SET status = 'finalizing', updated_at = ? WHERE job_id = ? AND status = ? AND updated_at = ? RETURNING job_id", [now(), rt.job_id, rt.status, rt.updated_at]);
     if (!claim.length) return changed;
     try { await finalize(job, rt); }
     catch (e) {
@@ -143,16 +143,19 @@ async function finalize(job: JobRun, rt: any) {
   if (!rt.output_key || !rt.output_chunks) throw new Error("The runner returned no file.");
   if (rt.output_size > op.maxOutput) throw new Error("The converted file is larger than allowed.");
   const { getArtifactBytes, deleteArtifactBytes } = await import("@/lib/jobs/artifact-store.server");
+  const { DRIVE_MAX_BYTES } = await import("@/lib/cloud/drive.server");
+  if (rt.output_size > DRIVE_MAX_BYTES) throw new Error("This output exceeds the 32 MB safe storage limit. No completed download was created.");
   const cnt = await d1<{ n: number }>("SELECT COUNT(*) AS n FROM artifact_chunks WHERE artifact_key = ?", [rt.output_key]);
   if (cnt[0]?.n !== rt.output_chunks) throw new Error("The converted file arrived incomplete.");
   const bytes = await getArtifactBytes(rt.output_key);
   if (bytes.length !== rt.output_size || (await sha256Hex(bytes)) !== rt.output_sha256) { await deleteArtifactBytes(rt.output_key).catch(() => undefined); throw new Error("The converted file failed its integrity check."); }
   if (!outputMatches(params.target, bytes)) { await deleteArtifactBytes(rt.output_key).catch(() => undefined); throw new Error(`The output is not a valid ${String(params.target).toUpperCase()} file.`); }
-  await job.step("saving", "Preparing the download");
+  await job.step("saving", "Saving the verified file privately to Google Drive");
   const name = outputName(rt.input_name, params.target);
-  await d1("INSERT INTO job_artifacts (id, job_id, user_id, name, mime, size, sha256, drive_file_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'file', ?, ?)",
-    [crypto.randomUUID(), job.id, job.userId, name, TARGET_MIME[params.target], bytes.length, rt.output_sha256, rt.output_key, new Date(Date.now() + ARTIFACT_TTL_MS).toISOString(), now()]);
+  await job.saveArtifact(name, TARGET_MIME[params.target] || "application/octet-stream", bytes, "file");
   for (const w of result?.warnings ?? []) job.warn(String(w));
   await d1("UPDATE runtime_jobs SET status = 'completed', updated_at = ? WHERE job_id = ?", [now(), rt.job_id]);
   await job.finish({ operation: rt.operation, fileName: rt.input_name, output: name, details: { ...result, warnings: undefined }, inputSize: rt.input_size, outputSize: bytes.length });
+  // Cleanup failure must not turn a delivered file into a failed task.
+  await deleteArtifactBytes(rt.output_key).catch(() => undefined);
 }

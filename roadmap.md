@@ -1,5 +1,12 @@
 # Roadmap — Memory, Output Control, Artifacts & Activity Tracking
 
+## Current request — Private Google Drive storage
+- [x] Audit output capabilities and storage paths; reconcile 115 canonical writable formats.
+- [x] Replace final-file D1 fallback with private Drive; preserve bounded runtime staging and legacy downloads; integrate browser exports.
+- [x] Add folder/upload reservations, metadata recovery, authenticated downloads, and bounded legacy migration.
+- [x] Automated regressions: 1375 passed, 1 skipped; automatic validation build OK.
+- [ ] Deploy updated service, initialize Drive folders, migrate legacy finals and verify signed-in downloads — blocked pending deployment authorization; existing Cloudflare Drive settings confirmed present, not changed.
+
 ## Current request — Cloudflare-only AI routing
 - [x] Audit AI paths; all three live providers responded through Cloudflare (reported outage not reproduced).
 - [x] Unify off-Worker text/tools relay with API_ORIGIN; prioritize Worker settings; document Cloudflare-only execution in AGENTS.md.

@@ -9,7 +9,7 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- `src/AGENTS.md` and `src/lib/AGENTS.md` hold scoped rules; read them before changing files there.
+- Read scoped rules in `src/AGENTS.md` and `src/lib/AGENTS.md` before edits; storage rules live there.
 - File-job output visibility is decided by the pure `src/lib/builder/file-delivery.ts` policy and enforced in JobCard for both fresh and restored results; runners preserve the request for explicit content opt-in. Why: download delivery must not automatically duplicate file contents in chat.
 - Chat attachment Plugins uses one controlled Popover anchored to the composer, selecting via the plugin-chip callback. Why: picker stays above the input without navigation or duplicated send logic.
 - Credentials live only in Cloudflare Secrets/Variables or its Secrets Store, read at runtime, never in Lovable secrets. Why: Cloudflare is the credential source of truth.

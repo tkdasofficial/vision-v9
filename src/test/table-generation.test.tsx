@@ -4,8 +4,10 @@ import MarkdownReply from "@/components/chat/markdown-reply";
 import { compareTableValues, tableToCsv } from "@/lib/table-export";
 import { systemPromptFor } from "@/lib/ai/prompts.server";
 import { classifyTask } from "@/lib/ai/task-router";
+const driveExport = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock('@/lib/drive-export', () => ({ exportToDrive: driveExport }));
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); driveExport.mockClear(); });
 const table = "| Product | Price |\n| :--- | ---: |\n| **Beta** | 20 |\n| Alpha | 3 |";
 
 describe("Advanced chat tables", () => {
@@ -50,15 +52,11 @@ describe("Advanced chat tables", () => {
   });
 
   it("downloads a UTF-8 CSV in the currently displayed order", () => {
-    const create = vi.fn().mockReturnValue("blob:table");
-    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: create });
-    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     render(<MarkdownReply>{table}</MarkdownReply>);
     fireEvent.click(screen.getByRole("button", { name: "Sort by Price" }));
     fireEvent.click(screen.getByRole("button", { name: "Download table CSV" }));
-    expect(create).toHaveBeenCalledWith(expect.any(Blob));
-    expect(click).toHaveBeenCalledOnce();
+    expect(driveExport).toHaveBeenCalledWith(expect.any(Blob), 'vision-table.csv');
+    expect(driveExport.mock.calls[0][0].type).toBe('text/csv;charset=utf-8');
   });
 
   it("escapes CSV quotes and newlines and neutralizes spreadsheet formulas", () => {
