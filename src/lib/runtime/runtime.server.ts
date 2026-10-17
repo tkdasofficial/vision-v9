@@ -156,5 +156,6 @@ async function finalize(job: JobRun, rt: any) {
   for (const w of result?.warnings ?? []) job.warn(String(w));
   await d1("UPDATE runtime_jobs SET status = 'completed', updated_at = ? WHERE job_id = ?", [now(), rt.job_id]);
   await job.finish({ operation: rt.operation, fileName: rt.input_name, output: name, details: { ...result, warnings: undefined }, inputSize: rt.input_size, outputSize: bytes.length });
-  await deleteArtifactBytes(rt.output_key);
+  // Cleanup failure must not turn a delivered file into a failed task.
+  await deleteArtifactBytes(rt.output_key).catch(() => undefined);
 }

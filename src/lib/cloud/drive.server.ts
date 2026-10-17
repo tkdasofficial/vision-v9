@@ -125,7 +125,11 @@ export async function storePrivate(name: string, mime: string, bytes: Uint8Array
 }
 export async function markDriveIndexed(identity: string) { const key = `drive:v2:upload:${identity}`; const row = await readRegistry(key); if (row) await mark(key, { ...row, state: 'indexed' }); }
 export async function readPrivate(id: string): Promise<Response> { return driveFetch(await accessToken(), `${BASE}/files/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`); }
-export async function deletePrivate(id: string) { try { await driveFetch(await accessToken(), `${BASE}/files/${encodeURIComponent(id)}?supportsAllDrives=true`, { method: 'DELETE' }); } catch (e) { if (!(e instanceof DriveError) || e.status !== 404) throw e; } }
+export async function deletePrivate(id: string) {
+  try { await driveFetch(await accessToken(), `${BASE}/files/${encodeURIComponent(id)}?supportsAllDrives=true`, { method: 'DELETE' }); } catch (e) { if (!(e instanceof DriveError) || e.status !== 404) throw e; }
+  const rows = await d1<{ key: string }>("SELECT key FROM app_config WHERE key LIKE 'drive:v2:upload:%' AND json_extract(value, '$.id') = ?", [id]);
+  for (const row of rows) await d1('DELETE FROM app_config WHERE key = ?', [row.key]);
+}
 // Legacy classification retained for the existing file index filters.
 export function kindForMime(mime: string, name: string) { const d = driveDestination(name); return mime.startsWith('image/') ? 'Images' : mime.startsWith('video/') ? 'Videos' : d.format === 'pdf' ? 'PDFs' : d.category === 'Code_and_Development' ? 'Code' : mime.startsWith('text/') ? 'Text' : 'Other'; }
 export async function storeFile(userId: string, name: string, mime: string, bytes: Uint8Array, projectId: string | null = null) {
