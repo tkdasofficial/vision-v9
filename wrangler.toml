@@ -11,7 +11,7 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 # Build output (run `bun run build` first): server entry + static client assets.
-main = "dist/server/index.js"
+main = "dist/server/index.mjs"
 
 [assets]
 directory = "dist/client"
