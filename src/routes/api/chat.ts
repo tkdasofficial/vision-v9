@@ -155,11 +155,10 @@ export const Route = createFileRoute("/api/chat")({
             system += `\n\n${sourcesBlock(s.results, s.status, s.failed)}`;
           } catch (e) { console.error("[search]", e); system += "\n\nLive web search was unavailable; say so in the answer."; }
         };
-        // Deep/Research paths search up front; the default task pipeline searches inside its stream so the status is live.
-        if (task.executionMode !== "default") await runSearch();
+        // All paths search inside their stream so the Searching/Reading statuses are live.
         // Deep Thinking Mode: deterministic analysis; complex requests go through the bounded verify/correct pipeline.
         let deepAnalysis: import("@/lib/ai/deep/analyze").RequestAnalysis | null = null;
-        const baseSystem = system;
+        let baseSystem = system;
         if (task.executionMode === "deep") {
           const { analyzeRequest } = await import("@/lib/ai/deep/analyze");
           const { planAddendum } = await import("@/lib/ai/deep/pipeline");
@@ -195,7 +194,8 @@ export const Route = createFileRoute("/api/chat")({
           }
         }
         if (budgeted.dropped) system += `\n\nNote: ${budgeted.dropped} older message(s) were left out to fit the context budget; if the user refers to them and no referenced source is attached, say you can't see them instead of guessing.`;
-        const fullMessages = [{ role: "system", content: system }, ...messages];
+        // The final system prompt is only complete after applyMemory runs inside the stream;
+        // each pipeline builds its own message list there.
 
         if (deepAnalysis && !lastHasMedia) {
           const { runDeepPipeline } = await import("@/lib/ai/deep/pipeline");
