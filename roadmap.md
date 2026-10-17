@@ -1,5 +1,10 @@
 # Roadmap — Memory, Output Control, Artifacts & Activity Tracking
 
+## Current request — Cloudflare-only AI routing
+- [ ] Diagnose unavailable providers and audit all AI execution paths.
+- [ ] Enforce Cloudflare routing from other hosts and document the rule in AGENTS.md.
+- [ ] Run routing regression tests, full suite, and verify the available live flow.
+
 ## Current request — File-only delivery
 - [x] Default all file creation/transformation replies to file delivery without in-file content.
 - [x] Show requested contents underneath the delivered file only on explicit opt-in.
