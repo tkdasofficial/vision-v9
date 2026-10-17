@@ -112,7 +112,7 @@ export async function runProjectGenerate(job: JobRun, input: ProjectInput) {
 
   const framework = stack === "html-site" ? "vanilla-html" : stack.startsWith("react") ? "react-vite" : "vanilla-html";
   await job.finish({
-    stack, stackLabel: STACKS[stack].label, name, root, artifactId: art.id,
+    prompt: input.prompt, stack, stackLabel: STACKS[stack].label, name, root, artifactId: art.id,
     files: files.map((f) => ({ path: f.path, size: f.content.length })),
     excluded: pack.excluded,
     validation: { errors: report.errors, warnings: report.warnings, checked: report.checked, notChecked: report.notChecked },

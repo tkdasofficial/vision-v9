@@ -1,6 +1,7 @@
 import { extractSource, asksToChangeContent } from "@/lib/ai/references";
 // Chat agent: understand → plan → run tools → verify outputs → repair once per step → answer.
-import { TOOL_MAP, catalogText, verifyOutput, type ToolCtx, type WorkFile } from "@/lib/tools/registry.server";
+import { TOOL_MAP, catalogText, verifyOutput, textOf, type ToolCtx, type WorkFile } from "@/lib/tools/registry.server";
+import { wantsFileContents } from "@/lib/builder/file-delivery";
 import { complete, PLANNING } from "./llm.server";
 import { executeTool } from "@/lib/tools/tool-schema";
 import { fenceUntrusted } from "@/lib/ai/context";
@@ -124,7 +125,17 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
     cp.running = null; cp.lastText = ctx.lastText.slice(0, 30000);
     await persist(cp);
   }
-  await job.finish({ prompt: input.prompt, steps: results, answer: plan.reply, resumedSteps });
+  // Opted-in display must come from the actual saved output, not a conversion confirmation.
+  let displayText: string | undefined;
+  if (wantsFileContents(input.prompt)) {
+    const outputIds = new Set(results.flatMap((r) => r.artifacts ?? []).map((a: { name: string }) => a.name));
+    const output = ctx.files.find((f) => outputIds.has(f.name));
+    if (output && /\.(?:pdf|docx|xlsx|csv|json|txt|md|html?|xml|ya?ml|toml|srt|vtt|svg|py|js|ts|css)$/i.test(output.name)) {
+      try { displayText = await textOf(output); }
+      catch { job.warn("The file was saved, but its contents couldn't be displayed here."); }
+    }
+  }
+  await job.finish({ prompt: input.prompt, steps: results, answer: plan.reply, displayText, resumedSteps });
 }
 
 /** Finds the first balanced {...} block that parses as JSON (ignores fences and chatter around it). */

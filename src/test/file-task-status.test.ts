@@ -8,10 +8,23 @@ vi.mock("@/lib/tools/registry.server", () => ({
   TOOL_MAP: new Map([["create_document", { id: "create_document", category: "File creation", params: '{"request": string, "format": "txt"}', run: async (ctx: ToolCtx) => {
     await ctx.stage?.("writing_content", "Writing"); await ctx.stage?.("creating_document", "Creating TXT");
     return { files: [{ name: "hindi.txt", mime: "text/plain", bytes: new TextEncoder().encode("भारत") }] };
-  } }]]), catalogText: () => "", verifyOutput: async () => null,
+  } }]]), catalogText: () => "", verifyOutput: async () => null, textOf: async (f: WorkFile) => new TextDecoder().decode(f.bytes),
 }));
 vi.mock("@/lib/tools/tool-schema", () => ({ executeTool: async (tool: any, ctx: any, params: any) => tool.run(ctx, params) }));
 describe("artifact lifecycle", () => {
+  it("reads opted-in display contents from the saved file, not tool commentary", async () => {
+    const finish = vi.fn();
+    const job = { id: "job-test", userId: "u", step: async () => {}, note: async () => {}, markCurrent: () => {}, warn: () => {}, finish };
+    await runAgent(job as any, { prompt: "Create TXT and show its content", files: [] }, async () => ({ id: "file-1" }), { resume: { cp: emptyCheckpoint("u", "job-test", { steps: [{ tool: "create_document", params: {} }] }), outputs: [] } });
+    expect(finish.mock.calls[0][0].displayText).toBe("भारत");
+  });
+  it("does not read file contents for file-only delivery", async () => {
+    const finish = vi.fn();
+    const job = { id: "job-test", userId: "u", step: async () => {}, note: async () => {}, markCurrent: () => {}, warn: () => {}, finish };
+    await runAgent(job as any, { prompt: "Create TXT", files: [] }, async () => ({ id: "file-1" }), { resume: { cp: emptyCheckpoint("u", "job-test", { steps: [{ tool: "create_document", params: {} }] }), outputs: [] } });
+    expect(finish.mock.calls[0][0].displayText).toBeUndefined();
+    expect(finish.mock.calls[0][0].steps[0].artifacts[0].id).toBe("file-1");
+  });
   it("reports writing, creation, validation and saving before completion", async () => {
     const events: string[] = [];
     const job = { id: "job-test", userId: "u", step: async (stage: string) => { events.push(stage); }, note: async () => {}, markCurrent: () => {}, warn: () => {}, finish: async () => { events.push("completed"); } };

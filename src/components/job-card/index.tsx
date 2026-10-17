@@ -88,7 +88,7 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
       <div className="space-y-3">
         {showContents && r.steps?.map((s: any, i: number) => s.preview?.kind === "svg" && <img key={i} src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(s.preview.content)}`} alt="" className="max-h-96 w-full rounded-xl border border-border bg-background object-contain" />)}
         {job.artifacts.length > 0 && <div className="flex flex-wrap gap-2">{job.artifacts.map((a) => <ArtifactButton key={a.id} id={a.id} name={a.name} />)}</div>}
-        {showContents && <CleanText text={last ? (last.preview?.kind === "markdown" ? last.preview.content : last.text ?? "") : r.answer} />}
+        {showContents && <CleanText text={r.displayText ?? (last ? (last.preview?.kind === "markdown" ? last.preview.content : last.text ?? "") : r.answer ?? "")} />}
       </div>
     );
   }
@@ -135,13 +135,14 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
       )}
       {job.type === "agent_task" && (r.answer || r.steps?.length) && (
         <div className="mt-3 space-y-3">
+          {showContents && r.displayText && <CleanText text={r.displayText} />}
           {showContents && r.answer && !r.steps?.length && <div className="prose prose-sm max-w-none text-foreground dark:prose-invert"><ReactMarkdown remarkPlugins={[remarkGfm]}>{r.answer}</ReactMarkdown></div>}
           {r.steps?.map((s: any, i: number) => (
             <div key={i} className="space-y-2">
               {r.steps.length > 1 && <p className="text-xs font-medium text-muted-foreground">{i + 1}. {s.category} · {s.tool}</p>}
               {s.error && <p className="text-xs text-destructive">{s.error}</p>}
               {showContents && s.preview?.kind === "svg" && <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(s.preview.content)}`} alt={`${s.tool} result`} className="max-h-96 w-full rounded-xl border border-border bg-background object-contain" />}
-              {showContents && s.text && (i === r.steps.length - 1 || s.preview?.kind !== "markdown") && (
+              {showContents && !r.displayText && s.text && (i === r.steps.length - 1 || s.preview?.kind !== "markdown") && (
                 <div className="prose prose-sm max-h-[28rem] max-w-none overflow-auto rounded-xl bg-muted p-3 text-foreground dark:prose-invert"><ReactMarkdown remarkPlugins={[remarkGfm]}>{(s.preview?.kind === "markdown" ? s.preview.content : s.text).slice(0, 20000)}</ReactMarkdown></div>
               )}
             </div>
