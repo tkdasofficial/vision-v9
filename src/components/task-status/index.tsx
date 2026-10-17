@@ -25,7 +25,8 @@ export default function TaskStatus({ label, startedAt, endedAt, failed = false, 
   return (
     <div role="status" aria-live="polite" className="flex w-full items-baseline gap-2 py-1 text-sm text-muted-foreground">
       <span key={label} className="min-w-0 break-words animate-fade-in font-medium text-foreground">{text}{live && <span className="text-muted-foreground">{".".repeat(dots)}</span>}</span>
-      <span className="shrink-0 tabular-nums opacity-70">{seconds}s</span>
+      {/* Elapsed time only appears once the task is finished — never while it is running. */}
+      {!live && <span className="shrink-0 tabular-nums opacity-70">{seconds}s</span>}
     </div>
   );
 }
