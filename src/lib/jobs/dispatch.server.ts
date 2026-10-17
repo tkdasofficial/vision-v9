@@ -14,6 +14,7 @@ export async function startJob(userId: string, id: string, type: JobType, input:
   const stored = type === "runtime_task" ? { operation: input.operation, params: input.params, fileName: input.fileName, mime: input.mime, sourceArtifactId: input.sourceArtifactId ?? null } : type === "zip_analyze" ? { fileName: input.fileName, sourceArtifactId: input.sourceArtifactId ?? null } : type === "agent_task" ? { prompt: input.prompt, sources: input.sources ?? [], ...(input.resumeFrom ? { resumeFrom: input.resumeFrom } : {}) } : input;
   const job = await createJob(id, userId, type, stored, attempt, sessionId);
   const { runCodeExport, runProjectGenerate, runZipAnalyze } = await import("./runners.server");
+  const run = (async () => {
   try {
     if (type === "code_export") await runCodeExport(job, input);
     else if (type === "project_generate") await runProjectGenerate(job, input);
