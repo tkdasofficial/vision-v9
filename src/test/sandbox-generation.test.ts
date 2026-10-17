@@ -78,7 +78,7 @@ function memDb() {
       [...chunks.values()].forEach((c) => { if (c.job_id === p[1] && ["failed", "generating", "validating"].includes(c.status)) c.status = "retrying"; });
       return [];
     }
-    if (s.startsWith("INSERT INTO generation_outputs")) { outputs.push({ job_id: p[0], version: p[1], content: p[2], validation_status: p[4], validation_detail: p[5] }); return []; }
+    if (s.startsWith("INSERT INTO generation_outputs")) { outputs.push({ job_id: p[0], version: p[1], content: p[2], validation_status: p[3], validation_detail: p[4] }); return []; }
     if (s.startsWith("SELECT o.* FROM generation_outputs")) return outputs.filter((o) => o.job_id === p[0] && jobs.get(p[0] as string)?.user_id === p[1]).slice(-1);
     if (s.startsWith("INSERT INTO generation_events")) { events.push({ job_id: p[0], chunk_id: p[1], event_type: p[2], status: p[3] }); return []; }
     if (s.startsWith("SELECT e.id")) return events.filter((e) => e.job_id === p[0]);
@@ -174,7 +174,6 @@ describe("runner with mocked store and model", () => {
       const m = user.match(/Write the section \"([^\"]+)/); return ok(`content for ${(m?.[1] ?? "start").toLowerCase()}`);
     });
     const res = await runJob("u1", job.id, { db, call: call as any });
-    console.log("DBG", JSON.stringify(res), JSON.stringify(await store.listChunks("u1", job.id, db)));
     expect(outputs).toHaveLength(1);
     expect(outputs[0].validation_status).toBe("valid");
     expect(outputs[0].content).toContain("content for start");
