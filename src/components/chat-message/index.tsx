@@ -432,16 +432,8 @@ const DEEP_LABELS: Record<DeepStage, string> = {
 
 const DeepStatusCard = ({ stage, seconds, since, detail }: { stage: DeepStage; seconds?: number; since: Date; detail?: string }) => {
   const live = stage !== "done" && stage !== "failed";
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    if (!live) return;
-    const start = new Date(since).getTime();
-    const tick = () => setElapsed(Math.max(0, Math.round((Date.now() - start) / 1000)));
-    tick();
-    const t = window.setInterval(tick, 1000);
-    return () => window.clearInterval(t);
-  }, [live, since]);
-  const secs = live ? elapsed : seconds;
+  // Elapsed time is never shown while working — only the "thought for Ns" note once done.
+  const secs = live ? undefined : seconds;
   return (
     <div role="status" aria-live="polite" className="flex h-16 w-full items-center gap-2 rounded-lg border border-border bg-muted/60 px-3 text-xs">
       {live ? <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
@@ -450,7 +442,6 @@ const DeepStatusCard = ({ stage, seconds, since, detail }: { stage: DeepStage; s
       <span key={stage} className="min-w-0 break-words font-medium text-foreground animate-fade-in">
         {DEEP_LABELS[stage]}{live && detail && stage !== "switching_provider" ? ` · ${detail}` : ""}{live ? "…" : stage === "done" && secs ? ` · thought for ${secs}s` : ""}
       </span>
-      {live && secs !== undefined && <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">{secs}s</span>}
     </div>
   );
 };
