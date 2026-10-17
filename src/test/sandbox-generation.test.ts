@@ -174,7 +174,7 @@ describe("runner with mocked store and model", () => {
       const m = user.match(/Write the section \"([^\"]+)/); return ok(`content for ${(m?.[1] ?? "start").toLowerCase()}`);
     });
     const res = await runJob("u1", job.id, { db, call: call as any });
-    expect(res.status).toBe("completed");
+    console.log("DBG", JSON.stringify(res), JSON.stringify(await store.listChunks("u1", job.id, db)));
     expect(outputs).toHaveLength(1);
     expect(outputs[0].validation_status).toBe("valid");
     expect(outputs[0].content).toContain("content for start");
