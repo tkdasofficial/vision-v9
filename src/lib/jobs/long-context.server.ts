@@ -159,7 +159,5 @@ export function runLongContext(job: JobRun, input: { prompt?: string }, heartbea
   const { strToU8 } = await import("fflate");
   const art = await job.saveArtifact("generated-document.md", "text/markdown", strToU8(result.text ?? ""), "file");
   await job.finish({ prompt, fileName: "generated-document.md", chunks: result.chunks, artifactId: art.id });
-  } finally {
-    clearInterval(heartbeat);
-  }
+  });
 }
