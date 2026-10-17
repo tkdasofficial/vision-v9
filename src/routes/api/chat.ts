@@ -310,7 +310,9 @@ export const Route = createFileRoute("/api/chat")({
             const ping = setInterval(() => send(": working\n\n"), 8000);
             try {
               emit("thinking");
-              if (retrieved) emit("retrieving_context", retrieved.slice(0, 120));
+              if (retrieved) emit("finding", retrieved.slice(0, 120));
+              // Memory runs live so Saving/Updating/Deleting Memory and Remembering show only while they happen.
+              await applyMemory((s, m) => emit(s, m));
               const analysis = analyzeRequest(lastText);
               emit(lastHasMedia ? "analyzing_files" : analysis.items || analysis.complex ? "analyzing_requirements" : "understanding_request", analysis.items ? `${analysis.items.count} ${analysis.items.noun}${analysis.items.count === 1 ? "" : "s"} requested` : undefined);
               await runSearch((stage, msg) => emit(stage, msg));
