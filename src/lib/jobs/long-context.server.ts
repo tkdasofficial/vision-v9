@@ -68,8 +68,9 @@ export async function runPipeline(userId: string, requestId: string, prompt: str
           ? catalogChunkMessages(prompt, spec.title, batchFor(seq))
           : gen.chunkMessages(gen.buildChunkContext({ instructions: prompt, outline: plan!.outline, chunk: spec, completed: [], policy: plan!.contextPolicy }), spec.tokenBudget);
         const res = await call(messages, excel ? CATALOG_TOKENS : spec.tokenBudget);
-        if (res.ok && res.text.trim()) {
-          if (await store.completeChunk(userId, sjob.id, seq, res.text.trim(), gen.estimateTokens(res.text), db)) break;
+        const text = res.ok ? (res.text ?? "").trim() : "";
+        if (text) {
+          if (await store.completeChunk(userId, sjob.id, seq, text, gen.estimateTokens(text), db)) break;
         }
         await store.failChunk(userId, sjob.id, seq, res.ok ? "Empty chunk" : (res.reason ?? "Generation failed"), db);
         if (attempt < CHUNK_ATTEMPTS) await store.markRetryable(userId, sjob.id, db);
