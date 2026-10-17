@@ -58,7 +58,7 @@ function memDb() {
       return [c];
     }
     if (s.startsWith("UPDATE generation_chunks SET content")) {
-      const c = chunks.get(`${p[3]}:${p[4]}`);
+      const c = chunks.get(`${p[4]}:${p[5]}`);
       if (!c || !["generating", "validating", "retrying"].includes(c.status)) return [];
       c.content = p[0]; c.status = "completed"; c.tokens = p[1]; c.checksum = p[2]; c.error = null;
       return [{ id: c.id }];
