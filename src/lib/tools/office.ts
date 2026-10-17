@@ -8,7 +8,12 @@ const unxml = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").repla
 
 export type Sheet = { name: string; rows: unknown[][] };
 
-export function writeXlsx(sheets: Sheet[]): Uint8Array {
+/** Optional spreadsheet presentation: frozen header, filters, column widths and
+ * numeric formats. Style ids: 0 default, 1 bold header, 2 "0.00", 3 "0.0", 4 integer. */
+export type WriteXlsxOpts = { freezeHeader?: boolean; autoFilter?: boolean; widths?: number[]; colStyles?: Record<number, 2 | 3 | 4> };
+export const XLSX_STYLE_PRICE = 2, XLSX_STYLE_ONE_DECIMAL = 3, XLSX_STYLE_INTEGER = 4;
+
+export function writeXlsx(sheets: Sheet[], opts: WriteXlsxOpts = {}): Uint8Array {
   if (!sheets.length) throw new Error("No sheets to write.");
   const files: Record<string, Uint8Array> = {};
   const names = sheets.map((s, i) => (s.name || `Sheet${i + 1}`).replace(/[\\/?*[\]:]/g, " ").slice(0, 31));
@@ -16,16 +21,22 @@ export function writeXlsx(sheets: Sheet[]): Uint8Array {
   files["_rels/.rels"] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
   files["xl/workbook.xml"] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${names.map((n, i) => `<sheet name="${x(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`);
   files["xl/_rels/workbook.xml.rels"] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
-  files["xl/styles.xml"] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf fontId="0"/><xf fontId="1" applyFont="1"/></cellXfs></styleSheet>`);
+  files["xl/styles.xml"] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="5"><xf fontId="0"/><xf fontId="1" applyFont="1"/><xf fontId="0" numFmtId="2" applyNumberFormat="1"/><xf fontId="0" numFmtId="164" applyNumberFormat="1"/><xf fontId="0" numFmtId="1" applyNumberFormat="1"/></cellXfs></styleSheet>`);
   sheets.forEach((s, si) => {
     const rows = s.rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => {
-      const ref = `${colName(ci)}${ri + 1}`, st = ri === 0 ? ' s="1"' : "";
+      const ref = `${colName(ci)}${ri + 1}`;
+      const style = ri === 0 ? 1 : (v !== "" && v != null ? opts.colStyles?.[ci] : undefined);
+      const st = style ? ` s="${style}"` : "";
       if (typeof v === "number" && Number.isFinite(v)) return `<c r="${ref}"${st}><v>${v}</v></c>`;
       if (typeof v === "boolean") return `<c r="${ref}" t="b"${st}><v>${v ? 1 : 0}</v></c>`;
       if (v == null || v === "") return "";
       return `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${x(typeof v === "object" ? JSON.stringify(v) : v)}</t></is></c>`;
     }).join("")}</row>`).join("");
-    files[`xl/worksheets/sheet${si + 1}.xml`] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows}</sheetData></worksheet>`);
+    const view = opts.freezeHeader ? `<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` : "";
+    const cols = opts.widths?.length ? `<cols>${opts.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols>` : "";
+    const lastCol = colName(Math.max(0, (s.rows[0]?.length ?? 1) - 1));
+    const filter = opts.autoFilter && s.rows.length ? `<autoFilter ref="A1:${lastCol}${s.rows.length}"/>` : "";
+    files[`xl/worksheets/sheet${si + 1}.xml`] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${view}${cols}<sheetData>${rows}</sheetData>${filter}</worksheet>`);
   });
   return zipSync(files, { level: 6 });
 }

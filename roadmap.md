@@ -56,3 +56,10 @@ Spec: user-uploaded VISION memory/output/artifact/activity integration doc (5 ta
 - [x] Server records generation stage/outcome (chat_generations); /api/chat-status for reconnect
 - [x] Preview proxy keeps generation alive after reload; first message of a new chat now carries its chat id (answer was previously never saved server-side)
 - [x] Verified: reload mid-answer → live "Writing" status restored → answer appears once; provider failure → clear note, no spinner
+
+## Current request — Autonomous user-level QA for Long Context Generation (500-record Excel)
+- [ ] New job type `long_context` routed from chat, driving the vision-sandbox pipeline (plan/chunks in D1, resume on retry)
+- [ ] Real .xlsx output stage: catalog planning, per-chunk JSON records, validation (500 rows, 16 cols, unique IDs/SKUs, rating 1-5), writeXlsx with frozen header/filter/widths/formats
+- [ ] Tests: pure helpers + pipeline with in-memory sandbox double + request routing + xlsx options
+- [ ] Deploy Worker after build passes
+- [ ] Playwright QA loop on the deployed app: UI login (credentials from env, never logged), submit workload via chat, observe progress, download workbook, independent validation, reload persistence; RUN→OBSERVE→DIAGNOSE→FIX→RETEST until PASS/BLOCKED; structured final report
