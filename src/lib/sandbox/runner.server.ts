@@ -47,7 +47,7 @@ export async function planOutline(instructions: string, call: Call, signal: Abor
  * failed/stale chunks are retried; independent chunks run in parallel waves.
  */
 export async function runJob(userId: string, jobId: string, opts: { db?: SandboxDb; call?: Call; signal?: AbortSignal } = {}): Promise<RunResult> {
-  const db = opts.db;
+  const db = opts.db ?? (await import("./db.server")).sandboxDb;
   const call = opts.call ?? defaultCall;
   const signal = opts.signal ?? new AbortController().signal;
   const job = await store.getJob(userId, jobId, db);
