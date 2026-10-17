@@ -84,7 +84,8 @@ export class JobRun {
     const existing = await d1<any>("SELECT id, name, size FROM job_artifacts WHERE job_id = ? AND user_id = ? AND name = ? AND kind = ? AND sha256 = ?", [this.id, this.userId, name, kind, hash]);
     if (existing[0]) return { id: existing[0].id, name: existing[0].name, size: existing[0].size, kind: kind === "source" ? "file" : kind };
     const driveId = kind === "source" ? (await putD1Artifact(bytes)).key : await putArtifact(name, mime, bytes, identity, this.userId);
-    const id = crypto.randomUUID();
+    const identityHash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${this.userId}:${identity}`)))].map(b => b.toString(16).padStart(2, "0")).join("");
+    const id = `${identityHash.slice(0,8)}-${identityHash.slice(8,12)}-${identityHash.slice(12,16)}-${identityHash.slice(16,20)}-${identityHash.slice(20,32)}`;
     // Verify before delivery: read the stored bytes back and compare size + hash, so a corrupt or
     // partial write fails the task honestly instead of handing the user a damaged file.
     try {
@@ -96,7 +97,7 @@ export class JobRun {
       await deleteArtifactBytes(driveId).catch(() => undefined);
       throw new Error("The file could not be stored correctly. Please run the task again.");
     }
-    await d1("INSERT INTO job_artifacts (id, job_id, user_id, name, mime, size, sha256, drive_file_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    await d1("INSERT OR IGNORE INTO job_artifacts (id, job_id, user_id, name, mime, size, sha256, drive_file_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [id, this.id, this.userId, name, mime, bytes.length, hash, driveId, kind, new Date(Date.now() + ARTIFACT_TTL_MS).toISOString(), now()]);
     if (kind !== "source") {
       const { markDriveIndexed } = await import("@/lib/cloud/drive.server");

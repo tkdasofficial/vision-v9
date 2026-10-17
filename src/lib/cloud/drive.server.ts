@@ -105,7 +105,8 @@ export async function storePrivate(name: string, mime: string, bytes: Uint8Array
   if (existing.ok) { const back = new Uint8Array(await (await readPrivate(row.id)).arrayBuffer()); if (back.length !== bytes.length || await digest(back) !== hash) throw new Error('Stored file integrity mismatch.'); }
   else {
     await existing.body?.cancel();
-    const start = await driveFetch(token, 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Upload-Content-Type': mime, 'X-Upload-Content-Length': String(bytes.length) }, body: JSON.stringify({ id: row.id, name: row.name, parents: [parent], appProperties: { visionUpload: identity } }) }, true);
+    const uploadTag = await digest(new TextEncoder().encode(identity));
+    const start = await driveFetch(token, 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Upload-Content-Type': mime, 'X-Upload-Content-Length': String(bytes.length) }, body: JSON.stringify({ id: row.id, name: row.name, parents: [parent], appProperties: { visionUpload: uploadTag } }) }, true);
     if (start.status === 409) throw new Error('Another upload is saving this file. Please retry.');
     const location = start.headers.get('Location');
     if (!location || !location.startsWith('https://www.googleapis.com/')) throw new Error('Google Drive did not provide a safe upload destination.');

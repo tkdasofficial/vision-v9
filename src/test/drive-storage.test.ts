@@ -80,7 +80,7 @@ describe('private upload, verification and recovery', () => {
   const bytes = new TextEncoder().encode('Exact text');
   it('uploads once, verifies bytes, and keeps reliable format/folder metadata', async () => {
     const id = await storePrivate('story.txt', 'text/plain', bytes, 'task-output', 'u1');
-    expect(contents.get(id)).toEqual(bytes); expect(files.get(id).parents).toHaveLength(1);
+    expect(Array.from(contents.get(id) ?? [])).toEqual(Array.from(bytes)); expect(files.get(id).parents).toHaveLength(1);
     await storePrivate('story.txt', 'text/plain', bytes, 'task-output', 'u1');
     expect(requests.filter(r => r.url.includes('uploadType=resumable'))).toHaveLength(1);
     await markDriveIndexed('task-output'); expect(JSON.parse(db.rows.get('drive:v2:upload:task-output') || '{}')).toMatchObject({ state: 'indexed', format: 'txt', owner: 'u1', size: bytes.length });
