@@ -384,12 +384,15 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       await runInlineJob("agent_task", { prompt: plan.prompt }, sessionId);
       return;
     }
-    const route = plan ? ({ kind: "chat" } as const) : routeRequest(content, taskMode ?? "default");
+    const reference = resolveReference(content, messages.map((m) => ({ id: m.id, role: m.role, content: m.content })));
+    const referencedWorkbook = reference.kind === "found" && /\bSales_Data\b/.test(reference.content) && /\bRegional_Analysis\b/.test(reference.content);
+    const route = plan ? ({ kind: "chat" } as const) : referencedWorkbook && /\b(?:xlsx|csv)\b/i.test(content)
+      ? ({ kind: "long_context" } as const) : routeRequest(content, taskMode ?? mode);
     if (route.kind !== "chat") {
       clearPhaseTimers();
       setIsTyping(false);
       // Content-dependent actions run on the real referenced message, never on the reference phrase.
-      const ref = resolveReference(content, messages.map((m) => ({ id: m.id, role: m.role, content: m.content })));
+      const ref = reference;
       if (ref.kind === "missing" || ref.kind === "ambiguous") {
         setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", content: ref.kind === "missing" ? `I couldn't find ${ref.label}. ${ref.reason}` : ref.question, timestamp: new Date() }]);
         return;

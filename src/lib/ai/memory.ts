@@ -20,7 +20,7 @@ export type MemoryRequest =
   | { action: "none" };
 
 const SAVE_RE = /^\s*(?:please\s+)?(?:remember|keep in mind|note|don't forget|do not forget)\s*(?:that|this)?:?\s+(.+)$/is;
-const RECALL_RE = /^\s*(?:what|do you)\s+(?:do you\s+)?remember\b|^\s*what did i (?:ask|tell) you to remember/i;
+const RECALL_RE = /^\s*(?:what|do you)\s+(?:do you\s+)?remember\b|^\s*what did i (?:ask|tell) you to remember|^\s*(?:show|list)\s+(?:me\s+)?(?:my|your|all(?: my)?)\s+(?:saved |permanent )?memor(?:y|ies)\b/i;
 
 /** Detects an explicit permanent-memory request. Returns "none" for ordinary messages. */
 export function detectMemoryRequest(text: string): MemoryRequest {
@@ -37,9 +37,9 @@ export function detectMemoryRequest(text: string): MemoryRequest {
  * newest first, capped to the budget. Returns [] when nothing matches — never invents.
  */
 export function relevantMemories(memories: PermanentMemory[], text: string, budget = 1500): PermanentMemory[] {
-  const words = new Set(text.toLowerCase().match(/[a-z]{3,}/g) ?? []);
+  const queryWords = new Set(words(text));
   const scored = memories
-    .map((m) => ({ m, hits: (m.content.toLowerCase().match(/[a-z]{3,}/g) ?? []).filter((w) => words.has(w)).length }))
+    .map((m) => ({ m, hits: words(m.content).filter((w) => queryWords.has(w)).length }))
     .filter((s) => s.hits > 0)
     .sort((a, b) => b.hits - a.hits || b.m.createdAt - a.m.createdAt);
   const out: PermanentMemory[] = [];
@@ -91,7 +91,7 @@ export type MemoryCommand =
   | { action: "forget"; query: string }
   | { action: "forget_all" };
 
-const FORGET_ALL_RE = /^\s*(?:please\s+)?(?:forget|delete|erase|clear|wipe)\s+(?:all\s+(?:of\s+)?(?:your\s+|my\s+)?(?:permanent\s+)?memor(?:y|ies)|everything\s+(?:you\s+)?(?:remember|know)\s+about\s+me)\s*[.!]?\s*$/i;
+const FORGET_ALL_RE = /^\s*(?:please\s+)?(?:forget|delete|erase|clear|wipe)\s+(?:all(?:\s+(?:of\s+)?(?:your\s+|my\s+)?(?:permanent\s+)?memor(?:y|ies))?|everything\s+(?:you\s+)?(?:remember|know)\s+about\s+me)\s*[.!]?\s*$/i;
 const FORGET_RE = /^\s*(?:please\s+)?(?:forget|stop remembering)\s+(?:that\s+|about\s+)?(.+?)\s*[.!]?\s*$/is;
 const DELETE_MEM_RE = /^\s*(?:please\s+)?(?:delete|remove|erase)\s+(?:the\s+)?(?:memory\s+(?:that|about)\s+)?(.+?)\s+from\s+(?:your\s+|my\s+)?(?:permanent\s+)?memory\s*[.!]?\s*$/is;
 const DELETE_MEM2_RE = /^\s*(?:please\s+)?(?:delete|remove|erase)\s+(?:the|my)\s+memory\s+(?:that|about|of)\s+(.+?)\s*[.!]?\s*$/is;
@@ -217,6 +217,13 @@ export type MemoryOutcome =
   | { kind: "forget_ambiguous"; candidates: string[] }
   | { kind: "forget_none"; query: string }
   | { kind: "lookup_failed" };
+
+/** Distinguish a failed read from confirmed empty memory; never fabricate either. */
+export function recallMemoryNote(memories: PermanentMemory[] | null): string {
+  if (memories === null) return "Permanent memory could not be read. Tell the user you couldn't check their saved memories and they can try again; do not say memory is empty or invent facts.";
+  if (!memories.length) return "Permanent memory was read successfully and is empty. Say there are no saved permanent memories; facts from this chat are separate.";
+  return `${permanentMemoryBlock(memories)}\nList only these saved facts honestly. Do not claim that facts from the current conversation were saved permanently.`;
+}
 
 const FAIL_TAIL = "Tell the user clearly, in one or two plain sentences, that it did not work because of a temporary problem and they can try again. Never say it succeeded and never mention the system, prompts or internal state.";
 

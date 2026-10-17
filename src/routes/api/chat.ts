@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/chat")({
         const workSignal = new AbortController().signal;
         const { keepAlive, saveReply } = await import("@/lib/jobs/chat-background.server");
         const body: any = await request.json().catch(() => null);
-        const raw = Array.isArray(body?.messages) ? body.messages.slice(-30) : [];
+        const raw = Array.isArray(body?.messages) ? body.messages.slice(-200) : [];
         let lastHasMedia = false;
         const messages = raw
           .map((m: any, i: number) => {
@@ -88,7 +88,7 @@ export const Route = createFileRoute("/api/chat")({
           // Permanent memory: personal facts. Never injected into "project"-scope chats (no personal leak).
           // Every save/delete is confirmed to the model only after D1 reports success.
           if (includesPersonal(chatCtx.scope) && lastText.trim()) {
-            const { detectMemoryCommand, detectAutoMemory, matchForget, relevantMemories, permanentMemoryBlock, memoryOutcomeNote } = await import("@/lib/ai/memory");
+            const { detectMemoryCommand, detectAutoMemory, matchForget, relevantMemories, permanentMemoryBlock, memoryOutcomeNote, recallMemoryNote } = await import("@/lib/ai/memory");
             const { loadPermanentMemories, tryLoadPermanentMemories, savePermanentMemory, deletePermanentMemories } = await import("@/lib/ai/memory.server");
             const memReq = detectMemoryCommand(lastText);
             const note = (o: import("@/lib/ai/memory").MemoryOutcome) => { system += `\n\n${memoryOutcomeNote(o)}`; };
@@ -119,12 +119,10 @@ export const Route = createFileRoute("/api/chat")({
               if (fact) await savePermanentMemory(caller.user.id, fact, "auto");
             }
             if (memReq.action !== "forget" && memReq.action !== "forget_all") emitMem?.("remembering");
-            const all = memReq.action === "forget" || memReq.action === "forget_all" ? [] : await loadPermanentMemories(caller.user.id);
+            const all = memReq.action === "forget" || memReq.action === "forget_all" ? [] : await tryLoadPermanentMemories(caller.user.id);
             if (memReq.action === "recall") {
-              system += all.length
-                ? `\n\n${permanentMemoryBlock(all.slice(0, 20))}\nThe user asked what you remember. List these facts honestly.`
-                : `\n\nThe user asked what you remember about them, but permanent memory is empty. Say so honestly; do not invent memories.`;
-            } else if (all.length) {
+              system += `\n\n${recallMemoryNote(all)}`;
+            } else if (all?.length) {
               const rel = relevantMemories(all, lastText);
               if (rel.length) system += `\n\n${permanentMemoryBlock(rel)}`;
             }

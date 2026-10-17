@@ -77,7 +77,10 @@ export async function savePermanentMemory(userId: string, content: string, sourc
     const existing = await loadPermanentMemoriesStrict(userId);
     const plan = planMemoryWrite(existing, trimmed);
     const now = Date.now();
-    if (plan.kind === "duplicate") return { memory: existing.find((m) => m.id === plan.id)!, plan };
+    if (plan.kind === "duplicate") {
+      const memory = existing.find((m) => m.id === plan.id);
+      return memory ? { memory, plan } : null;
+    }
     if (plan.kind === "replace") {
       const r: any[] = await d1("UPDATE user_memories SET content = ?, updated_at = ?, source = ? WHERE id = ? AND user_id = ? RETURNING id", [trimmed, now, source, plan.id, userId]);
       if (!r.length) return null;
