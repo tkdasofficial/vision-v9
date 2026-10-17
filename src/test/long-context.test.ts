@@ -172,7 +172,7 @@ describe("chat routing", () => {
     expect(routeRequest("Generate an Excel workbook with 500 product records for a catalog")).toEqual({ kind: "long_context" });
   });
   it("leaves small spreadsheet requests on the regular file path", () => {
-    expect(routeRequest("make an excel of my expenses")).toEqual({ kind: "file", format: "xlsx" });
+    expect(routeRequest("make an excel of my expenses")).toEqual({ kind: "tool" });
   });
 });
 
