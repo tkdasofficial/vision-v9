@@ -185,6 +185,27 @@ describe("orchestrator call", () => {
   });
 });
 
+describe("job heartbeat", () => {
+  it("refreshes the job while a long step runs and stops afterwards", async () => {
+    let touches = 0;
+    const job = { touch: vi.fn(async () => { touches++; }) };
+    const done = withJobHeartbeat(job as any, 5, async () => { await new Promise((r) => setTimeout(r, 60)); return "ok"; });
+    await expect(done).resolves.toBe("ok");
+    expect(touches).toBeGreaterThanOrEqual(2);
+    const at = touches;
+    await new Promise((r) => setTimeout(r, 30));
+    expect(touches).toBe(at);
+  });
+  it("stops the heartbeat even when the step throws", async () => {
+    let touches = 0;
+    const job = { touch: vi.fn(async () => { touches++; }) };
+    await expect(withJobHeartbeat(job as any, 5, async () => { await new Promise((r) => setTimeout(r, 30)); throw new Error("boom"); })).rejects.toThrow("boom");
+    const at = touches;
+    await new Promise((r) => setTimeout(r, 30));
+    expect(touches).toBe(at);
+  });
+});
+
 describe("pipeline (mocked provider, in-memory sandbox)", () => {
   const prompt = "Generate an Excel workbook with 200 fictional product records for a catalog";
 
