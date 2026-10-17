@@ -1,7 +1,9 @@
 // Long Context Generation jobs: catalog planning, record parsing/validation, the
 // workbook writer's presentation options, chat routing, and the full pipeline over
 // an in-memory vision-sandbox double with a mocked model call (no live providers).
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/ai/orchestrator.server", () => ({ orchestrateText: vi.fn(async (_m: unknown, opts: any) => ({ ok: true, text: "[]", sawSignal: opts.signal instanceof AbortSignal })) }));
 import { CATALOG_COLUMNS, catalogOutline, normalizeRecord, parseRecords, rowCountFor, validateCatalog, wantsWorkbook } from "@/lib/jobs/long-context";
 import { runPipeline } from "@/lib/jobs/long-context.server";
 import { readXlsx, writeXlsx } from "@/lib/tools/office";
