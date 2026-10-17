@@ -103,7 +103,7 @@ describe("generation plan", () => {
     expect(plan.chunks[3].dependsOn).toEqual([2]);
     const waves = scheduleWaves(plan.chunks);
     expect(waves[0].sort()).toEqual([0, 1]);
-    expect(waves).toHaveLength(4);
+    expect(waves).toHaveLength(3);
   });
 
   it("rejects dependency cycles", () => {
@@ -171,7 +171,7 @@ describe("runner with mocked store and model", () => {
     const call = vi.fn(async (msgs: any[]) => {
       const user = msgs[1].content as string;
       if (user.includes("Write a short guide") && !user.includes("Your task")) return ok(JSON.stringify(["Start", "Middle", "End"]));
-      return ok(`content for ${user.includes("Middle") ? "middle" : user.includes("End") ? "end" : "start"}`);
+      const m = user.match(/Write the section \"([^\"]+)/); return ok(`content for ${(m?.[1] ?? "start").toLowerCase()}`);
     });
     const res = await runJob("u1", job.id, { db, call: call as any });
     expect(res.status).toBe("completed");
@@ -204,8 +204,8 @@ describe("runner with mocked store and model", () => {
       const user = msgs[1].content as string;
       if (!user.includes("Your task")) return ok(JSON.stringify(["Start", "Middle", "End"]));
       calls++;
-      if (user.includes("Middle") && calls < 4) return fail("provider down");
-      return ok(`done-${user.includes("Middle") ? "middle" : user.includes("End") ? "end" : "start"}`);
+      const m = user.match(/Write the section \"([^\"]+)/); if (m?.[1] === "Middle" && calls < 4) return fail("provider down");
+      return ok(`done-${(user.match(/Write the section \"([^\"]+)/)?.[1] ?? "start").toLowerCase()}`);
     });
     const first = await runJob("u1", job.id, { db, call: call as any });
     expect(first.status).toBe("failed");
@@ -229,7 +229,7 @@ describe("runner with mocked store and model", () => {
     const call = vi.fn(async (msgs: any[]) => {
       const user = msgs[1].content as string;
       if (!user.includes("Your task")) return ok(JSON.stringify(["Start", "End"]));
-      return ok(`text-${user.includes("End") ? "end" : "start"}`);
+      return ok(`text-${(user.match(/Write the section \"([^\"]+)/)?.[1] ?? "start").toLowerCase()}`);
     });
     // Simulate a crash: plan saved, one chunk done, job stuck mid-generation.
     await store.savePlan("u1", job.id, buildPlan("Write a short guide", ["Start", "End"]), db);
