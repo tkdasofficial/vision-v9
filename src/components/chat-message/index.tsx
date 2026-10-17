@@ -430,7 +430,7 @@ const DEEP_LABELS: Record<DeepStage, string> = {
   retrying: "Retrying", switching_provider: "Working on it",
 };
 
-const DeepStatusCard = ({ stage, seconds, since, detail }: { stage: DeepStage; seconds?: number; since: Date; detail?: string }) => {
+const DeepStatusCard = ({ stage, seconds, detail }: { stage: DeepStage; seconds?: number; detail?: string }) => {
   const live = stage !== "done" && stage !== "failed";
   // Elapsed time is never shown while working — only the "thought for Ns" note once done.
   const secs = live ? undefined : seconds;
@@ -476,7 +476,7 @@ const DeepReplyContent = ({ message, deep }: { message: ChatMessageType; deep: N
       <p className="text-sm text-muted-foreground">
         {done ? "Here's what I worked out." : stage === "failed" ? "I couldn't finish this one." : "I'm working on it — thinking it through and checking the result before I answer."}
       </p>
-      <DeepStatusCard stage={stage} seconds={deep.seconds} since={message.timestamp} detail={deep.detail} />
+      <DeepStatusCard stage={stage} seconds={deep.seconds} detail={deep.detail} />
       {(done || stage === "failed") && message.content && (
         <article className="animate-fade-in pt-2">
           {title && <h2 className="font-display text-2xl sm:text-[28px] font-bold leading-tight tracking-tight text-foreground py-4">{title}</h2>}
