@@ -47,10 +47,12 @@ export async function runPipeline(userId: string, requestId: string, prompt: str
     if (excel) outline = catalogOutline(totalRows);
     else {
       const { planOutline } = await import("@/lib/sandbox/runner.server");
-      outline = await planOutline(prompt, async (m, t) => {
+      // The sandbox runner's Call carries provider telemetry this pipeline does not produce;
+      // planOutline only reads ok/text, so the adapter is cast to its signature.
+      outline = await planOutline(prompt, (async (m: unknown[], t: number) => {
         const r = await call(m, t);
-        return r.ok ? { ok: true as const, text: r.text ?? "" } : { ok: false as const, status: 502, reason: r.reason ?? "provider unavailable" };
-      }, new AbortController().signal);
+        return r.ok ? { ok: true, text: r.text ?? "" } : { ok: false, status: 502, reason: r.reason ?? "provider unavailable" };
+      }) as unknown as Parameters<typeof planOutline>[1], new AbortController().signal);
     }
     plan = gen.buildPlan(prompt, outline, excel ? { chunkTargetTokens: CATALOG_TOKENS } : {});
     await store.savePlan(userId, sjob.id, plan, db);
