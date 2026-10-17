@@ -1,8 +1,7 @@
 // Cloudflare Workers AI calls used by chat tools: image reading (vision) and speech-to-text.
 // On the Worker these use the AI binding; anywhere else they go through the "vision" Worker's
 // /ai/run relay. There is no direct REST fallback from the hosting server.
-import { getAiBinding, getD1Binding, getSecret } from "@/lib/ai/runtime-env.server";
-import { AUTH_GATEWAY_URL } from "@/lib/cloud/auth-gateway";
+import { getAiBinding, getD1Binding, aiRelayConfig } from "@/lib/ai/runtime-env.server";
 
 async function run(model: string, input: unknown, timeoutMs: number, busy: string, failed: string): Promise<any> {
   const ai = getAiBinding();
@@ -11,9 +10,8 @@ async function run(model: string, input: unknown, timeoutMs: number, busy: strin
     catch (e: any) { throw new Error(/429|capacity|rate/i.test(String(e?.message)) ? busy : failed); }
   }
   if (getD1Binding()) throw new Error("The AI service isn't configured on the server.");
-  const origin = (getSecret("AUTH_ORIGIN") || "").replace(/\/+$/, "");
+  const { url: gw, origin } = aiRelayConfig();
   if (!origin) throw new Error("The AI service isn't configured on the server.");
-  const gw = (getSecret("AUTH_GATEWAY_URL") || AUTH_GATEWAY_URL).replace(/\/+$/, "");
   const res = await fetch(`${gw}/ai/run`, {
     method: "POST", headers: { Origin: origin, "Content-Type": "application/json" },
     body: JSON.stringify({ model, input }), signal: AbortSignal.timeout(timeoutMs),

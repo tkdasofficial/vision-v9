@@ -2,6 +2,8 @@
 // or Workers with nodejs_compat) or the Cloudflare Worker env bindings (secrets set in Workers & Pages →
 // Settings → Variables and Secrets). Values never leave the server and are never logged.
 
+import { AUTH_GATEWAY_URL } from "@/lib/cloud/auth-gateway";
+
 type Bindings = Record<string, unknown>;
 const KEY = "__visionWorkerEnv";
 
@@ -17,10 +19,12 @@ function workerEnv(): Bindings | undefined {
 }
 
 export function getSecret(name: string): string | undefined {
+  // Live Worker bindings take precedence over hosting/build-time values.
+  const v = workerEnv()?.[name];
+  if (typeof v === "string" && v) return v;
   const fromProcess = typeof process !== "undefined" ? process.env?.[name] : undefined;
   if (fromProcess) return fromProcess;
-  const v = workerEnv()?.[name];
-  return typeof v === "string" && v ? v : undefined;
+  return undefined;
 }
 
 /** The D1 database binding (env.DB), when the Worker has one. */
@@ -43,4 +47,11 @@ export function providerConfigReport() {
     workersAiBinding: !!getAiBinding(),
     workersAiRest: !!(getSecret("CLOUDFLARE_ACCOUNT_ID") && getSecret("CLOUDFLARE_API_TOKEN")),
   };
+}
+
+/** Off-Worker inference uses the same Cloudflare backend as /api/*. */
+export function aiRelayConfig(): { url: string; origin?: string } {
+  const url = (getSecret("API_ORIGIN") || getSecret("AUTH_GATEWAY_URL") || AUTH_GATEWAY_URL).replace(/\/+$/, "");
+  const origin = (getSecret("AUTH_ORIGIN") || "").replace(/\/+$/, "") || undefined;
+  return { url, origin };
 }

@@ -2,8 +2,7 @@
 // Priority is NVIDIA → Groq → Cloudflare Workers AI (see TEXT_CHAIN). Keys come from process.env or the
 // Cloudflare Worker env bindings (NVIDIA_API_KEY, GROQ_API_KEY), read by getSecret.
 import type { ModelRef } from "./models.server";
-import { getSecret, getAiBinding, getD1Binding } from "./runtime-env.server";
-import { AUTH_GATEWAY_URL } from "@/lib/cloud/auth-gateway";
+import { getSecret, getAiBinding, getD1Binding, aiRelayConfig } from "./runtime-env.server";
 import type { ProviderEvent } from "./orchestrator.server";
 
 export function endpoint(t: ModelRef): { url: string; key?: string; origin?: string } {
@@ -12,8 +11,7 @@ export function endpoint(t: ModelRef): { url: string; key?: string; origin?: str
   // The relay authorizes callers by their Origin header against its ALLOWED_RETURN_ORIGINS
   // allowlist, so the app sends its public origin (AUTH_ORIGIN).
   if (!getAiBinding() && !getD1Binding()) {
-    const gw = (getSecret("AUTH_GATEWAY_URL") || AUTH_GATEWAY_URL).replace(/\/+$/, "");
-    const origin = (getSecret("AUTH_ORIGIN") || "").replace(/\/+$/, "") || undefined;
+    const { url: gw, origin } = aiRelayConfig();
     if (!origin) console.error(JSON.stringify({ tag: "[ai:relay]", error: "AUTH_ORIGIN is not set; AI calls cannot reach the Cloudflare Worker" }));
     return { url: `${gw}/ai/${t.provider}`, origin };
   }
@@ -64,7 +62,7 @@ async function attemptProvider(t: ModelRef, messages: unknown[], opts: { maxToke
   if (opts.deadlineAt && Date.now() >= opts.deadlineAt) return { ok: false, status: 504, reason: "request deadline reached" };
   if (_attempt > 0) await opts.onEvent?.({ stage: "retrying", provider: t.provider, model: t.label });
   // On the Cloudflare Worker, the AI binding (env.AI) is the primary path — it needs no
-  // API token and does not consume the REST API quota. REST is the off-Worker fallback.
+  // API token and does not consume the REST API quota. REST is Worker-only; off-Worker calls use the relay.
   if (t.provider === "cf") {
     const bound = await attemptWorkersAiBinding(t, messages, opts, signal);
     if (bound) return bound;
@@ -133,7 +131,7 @@ async function attemptProvider(t: ModelRef, messages: unknown[], opts: { maxToke
 
 /**
  * Cloudflare provider via the Workers AI binding (env.AI.run). Returns null when no
- * binding exists (off-Worker hosting), so the caller falls back to the REST endpoint.
+ * binding exists, so endpoint() selects the relay off Worker or REST on Worker.
  * With stream:true the binding returns an OpenAI-compatible SSE ReadableStream.
  */
 async function attemptWorkersAiBinding(t: ModelRef, messages: unknown[], opts: { maxTokens: number; deadlineAt?: number }, signal: AbortSignal): Promise<ProviderResult | null> {
