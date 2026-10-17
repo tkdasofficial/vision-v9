@@ -91,7 +91,7 @@ export async function initializeDriveStructure() {
   return { root, folders };
 }
 async function digest(bytes: Uint8Array) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as Uint8Array<ArrayBuffer>))].map(b => b.toString(16).padStart(2, '0')).join(''); }
-export async function storePrivate(name: string, mime: string, bytes: Uint8Array, identity = crypto.randomUUID(), owner = ''): Promise<string> {
+export async function storePrivate(name: string, mime: string, bytes: Uint8Array, identity: string = crypto.randomUUID(), owner = ''): Promise<string> {
   if (bytes.length > DRIVE_MAX_BYTES) throw new Error('This file exceeds the 32 MB safe storage limit. No completed download was created.');
   const token = await accessToken(); const root = await visionRoot(token); const dest = driveDestination(name);
   const category = await folderFor(token, root, dest.category); const parent = await folderFor(token, category, dest.folder);
@@ -129,9 +129,11 @@ export async function deletePrivate(id: string) { try { await driveFetch(await a
 // Legacy classification retained for the existing file index filters.
 export function kindForMime(mime: string, name: string) { const d = driveDestination(name); return mime.startsWith('image/') ? 'Images' : mime.startsWith('video/') ? 'Videos' : d.format === 'pdf' ? 'PDFs' : d.category === 'Code_and_Development' ? 'Code' : mime.startsWith('text/') ? 'Text' : 'Other'; }
 export async function storeFile(userId: string, name: string, mime: string, bytes: Uint8Array, projectId: string | null = null) {
-  const id = crypto.randomUUID(); const safeName = safeDriveName(name); const type = mime || 'application/octet-stream';
+  const safeName = safeDriveName(name); const type = mime || 'application/octet-stream';
+  const identity = await digest(new TextEncoder().encode(`${userId}:${projectId ?? ''}:${safeName}:${type}:${await digest(bytes)}`));
+  const id = `${identity.slice(0,8)}-${identity.slice(8,12)}-${identity.slice(12,16)}-${identity.slice(16,20)}-${identity.slice(20,32)}`;
   const driveId = await storePrivate(safeName, type, bytes, `user:${id}`, userId); const url = `/api/files?id=${id}`; const created = new Date().toISOString();
-  await d1('INSERT INTO user_files (id, user_id, name, mime, kind, size, drive_file_id, url, project_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, userId, safeName, type, kindForMime(type, safeName), bytes.length, driveId, url, projectId, created]);
+  await d1('INSERT OR IGNORE INTO user_files (id, user_id, name, mime, kind, size, drive_file_id, url, project_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, userId, safeName, type, kindForMime(type, safeName), bytes.length, driveId, url, projectId, created]);
   await markDriveIndexed(`user:${id}`);
   return { id, name: safeName, mime: type, kind: kindForMime(type, safeName), size: bytes.length, url, project_id: projectId, created_at: created };
 }
