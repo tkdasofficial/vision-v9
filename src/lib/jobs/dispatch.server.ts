@@ -70,8 +70,8 @@ export async function startJob(userId: string, id: string, type: JobType, input:
   // browser keeps polling /api/jobs/$jobId, so a cut connection can never kill a live task.
   const { keepAlive } = await import("./chat-background.server");
   keepAlive(run);
-  const quick = await Promise.race([run.then(() => "done" as const), new Promise<"running" ((r) => setTimeout(() => r("running"), 20_000))]);
-  void quick;
+  // Fast tasks still return their final view in the same request; slow ones return "running".
+  await Promise.race([run, new Promise((r) => setTimeout(r, 20_000))]);
   return getJob(userId, id);
 }
 
