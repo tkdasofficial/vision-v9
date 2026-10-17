@@ -76,6 +76,11 @@ export class JobRun {
   }
   private closeLast(outcome: "ok" | "warn" | "error") { const cur = this.steps[this.steps.length - 1]; if (cur && !cur.endedAt) { cur.endedAt = now(); cur.outcome ??= outcome; } }
 
+  /** Heartbeat for long-running steps: refreshes updated_at so stale recovery never kills a live job. */
+  async touch() {
+    await d1("UPDATE jobs SET updated_at = ? WHERE id = ? AND status NOT IN ('completed','completed_with_warnings','failed','cancelled','timed_out')", [now(), this.id]);
+  }
+
   async saveArtifact(name: string, mime: string, bytes: Uint8Array, kind: ArtifactRef["kind"] | "source"): Promise<ArtifactRef> {
     await this.checkCancel();
     const { putArtifact, putD1Artifact, getArtifactBytes } = await import("./artifact-store.server");
