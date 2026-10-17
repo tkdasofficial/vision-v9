@@ -12,10 +12,12 @@ const CHUNK_ATTEMPTS = 3;
 const CATALOG_TOKENS = 8000;
 
 type Call = (messages: unknown[], maxTokens: number) => Promise<{ ok: boolean; text?: string; reason?: string }>;
-const defaultCall: Call = async (messages, maxTokens) => {
+/** The orchestrator requires an AbortSignal; jobs have no caller signal, so each call gets a fresh one. */
+export async function callOrchestrator(messages: unknown[], maxTokens: number) {
   const { orchestrateText } = await import("@/lib/ai/orchestrator.server");
   return orchestrateText(messages, { maxTokens, deep: false, signal: new AbortController().signal, taskId: "long-context" });
-};
+}
+const defaultCall: Call = (messages, maxTokens) => callOrchestrator(messages, maxTokens);
 
 async function runLimited<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
   let i = 0;
