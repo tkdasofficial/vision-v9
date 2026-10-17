@@ -33,7 +33,7 @@ export async function runCodeExport(job: JobRun, input: CodeInput) {
   }
   const fileName = filenameFor(language, input.filename);
   await job.step("validating", `Checking ${fileName}`);
-  const ext = fileName.split(".").pop()!.toLowerCase();
+  const ext = (fileName.split(".").pop() ?? "txt").toLowerCase();
   if (/^(m?js|cjs|jsx|ts|tsx)$/.test(ext)) {
     const d = syntaxCheck(fileName, code);
     if (d) { job.warn(`${d.message}${d.line ? ` (line ${d.line})` : ""}`); job.markCurrent("warn"); }
@@ -44,7 +44,7 @@ export async function runCodeExport(job: JobRun, input: CodeInput) {
   }
   await job.step("saving", `Saving ${fileName}`);
   const art = await job.saveArtifact(fileName, MIME[ext] ?? "text/plain", strToU8(code), "file");
-  await job.finish({ fileName, language: language || extensionFor(language), content: code, artifactId: art.id });
+  await job.finish({ prompt: input.prompt, fileName, language: language || extensionFor(language), content: code, artifactId: art.id });
 }
 
 // ---------- Multi-file project ----------
