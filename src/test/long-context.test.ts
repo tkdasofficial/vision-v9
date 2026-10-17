@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ai/orchestrator.server", () => ({ orchestrateText: vi.fn(async (_m: unknown, opts: any) => ({ ok: true, text: "[]", sawSignal: opts.signal instanceof AbortSignal })) }));
 import { CATALOG_COLUMNS, catalogOutline, normalizeRecord, parseRecords, rowCountFor, validateCatalog, wantsWorkbook } from "@/lib/jobs/long-context";
-import { runPipeline, callOrchestrator } from "@/lib/jobs/long-context.server";
+import { runPipeline, callOrchestrator, withJobHeartbeat } from "@/lib/jobs/long-context.server";
 import { readXlsx, writeXlsx } from "@/lib/tools/office";
 import { routeRequest } from "@/lib/ai/request-route";
 
