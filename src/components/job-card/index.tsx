@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import TaskStatus from "@/components/task-status";
 import { visibleJobStatus } from "@/lib/status-visibility";
 import { workStateForJob, workStateLabel } from "@/lib/ai/work-status";
-import { canShowJobContents, isFileDelivery } from "@/lib/builder/file-delivery";
+import { canShowJobContents } from "@/lib/builder/file-delivery";
 
 /** Downloads through an authenticated fetch so the session always reaches the server. */
 function ArtifactButton({ id, name, size }: { id: string; name: string; size?: string }) {
