@@ -21,7 +21,7 @@ export const JOB_STATUSES = {
   packaging: "Packaging",
   verifying: "Verifying",
   uploading: "Uploading",
-  downloading: "Downloading",
+  downloading: "Fetching",
   processing: "Processing",
   saving: "Saving",
   retrying: "Retrying",

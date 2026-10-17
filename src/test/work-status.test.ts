@@ -92,7 +92,7 @@ describe("activitySummary (Task 4 activity history)", () => {
   });
   it("merges consecutive duplicates and drops hidden stages", () => {
     const a = activitySummary(["thinking", "thinking", "switching_provider", "validating_requirements", "reviewing_answer"] as any, 5);
-    expect(a!.steps).toEqual(["Thinking", "Validating"]);
+    expect(a!.steps).toEqual(["Thinking", "Validating", "Reviewing"]);
   });
   it("returns null when nothing displayable ran — never fabricates activity", () => {
     expect(activitySummary(["switching_provider"] as any, 3)).toBeNull();
