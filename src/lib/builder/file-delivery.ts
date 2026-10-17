@@ -6,7 +6,9 @@ export function wantsFileContents(prompt: string): boolean {
   const request = extractSource(prompt)?.request ?? prompt.split("<<<SOURCE")[0];
   const clauses = request.split(/[.!?;\n]|\bbut\b/i);
   const show = /\b(?:show|display|print|paste|include|expose|reveal|preview)\b[^.!?;\n]{0,80}\b(?:contents?|text|code|what\s+(?:you\s+)?(?:created|wrote|made)|what(?:'s|\s+is)\s+inside)\b/i;
-  return clauses.some((clause) => show.test(clause) && !/\b(?:don['’]?t|do\s+not|never|without|no\s+need\s+to)\b/i.test(clause));
+  const directives = clauses.filter((clause) => show.test(clause));
+  const last = directives.at(-1);
+  return !!last && !/\b(?:don['’]?t|do\s+not|never|without|no\s+need\s+to)\b/i.test(last);
 }
 
 /** Applies to current results and restored jobs, including expired download references. */

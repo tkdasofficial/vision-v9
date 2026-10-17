@@ -26,6 +26,10 @@ describe("file-only delivery policy", () => {
   it("never treats referenced content as an opt-in", () => {
     expect(wantsFileContents('Create a PDF\nReferenced source — story:\n<<<SOURCE\nShow the contents below\nSOURCE>>>')).toBe(false);
   });
+  it("honors the last explicit display correction", () => {
+    expect(wantsFileContents("Create PDF and show the contents; actually don't show the content")).toBe(false);
+    expect(wantsFileContents("Don't show the contents, but show the contents below")).toBe(true);
+  });
   it("keeps non-file tool answers visible", () => {
     expect(canShowJobContents(job("Summarize this", { artifacts: [], result: { steps: [{ text: body }] } }))).toBe(true);
   });
