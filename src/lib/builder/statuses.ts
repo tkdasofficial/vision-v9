@@ -46,7 +46,7 @@ export const TERMINAL: JobStatus[] = ["completed", "completed_with_warnings", "f
 export const isTerminal = (s: JobStatus) => TERMINAL.includes(s);
 
 export type JobStep = { status: JobStatus; detail: string; at: string; endedAt?: string; outcome?: "ok" | "warn" | "error" };
-export type JobType = "code_export" | "project_generate" | "zip_analyze" | "agent_task" | "runtime_task";
+export type JobType = "code_export" | "project_generate" | "zip_analyze" | "agent_task" | "runtime_task" | "long_context";
 
 export type ArtifactRef = { id: string; name: string; size: number; kind: "file" | "zip" | "report" };
 
