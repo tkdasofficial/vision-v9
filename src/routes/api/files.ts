@@ -14,6 +14,18 @@ export const Route = createFileRoute("/api/files")({
         const { getCaller } = await import("@/lib/cloud/auth.server");
         const caller = await getCaller();
         if (!caller) return Response.json({ error: "Please sign in." }, { status: 401 });
+        const id = new URL(request.url).searchParams.get("id");
+        if (id) {
+          const { d1 } = await import("@/lib/cloud/d1.server");
+          const { readPrivate } = await import("@/lib/cloud/drive.server");
+          const { contentDisposition } = await import("@/lib/jobs/artifact-download");
+          const rows = await d1<any>("SELECT * FROM user_files WHERE id = ? AND user_id = ?", [id, caller.user.id]);
+          if (!rows[0]) return Response.json({ error: "File not found." }, { status: 404 });
+          try {
+            const stored = await readPrivate(rows[0].drive_file_id);
+            return new Response(stored.body, { headers: { "Content-Type": rows[0].mime, "Content-Disposition": contentDisposition(rows[0].name), "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+          } catch { return Response.json({ error: "Google Drive is unavailable. Please retry." }, { status: 502 }); }
+        }
         const { listFiles } = await import("@/lib/cloud/drive.server");
         return Response.json({ files: await listFiles(caller.user.id, new URL(request.url).searchParams.get("project")) });
       },
@@ -54,6 +66,9 @@ export const Route = createFileRoute("/api/files")({
       },
 
       DELETE: async ({ request }) => {
+        const { maybeProxyToWorker } = await import("@/lib/cloud/api-proxy.server");
+        const proxied = await maybeProxyToWorker(request);
+        if (proxied) return proxied;
         const { getCaller } = await import("@/lib/cloud/auth.server");
         const caller = await getCaller();
         if (!caller) return Response.json({ error: "Please sign in." }, { status: 401 });

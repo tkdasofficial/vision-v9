@@ -77,10 +77,14 @@ export class JobRun {
   private closeLast(outcome: "ok" | "warn" | "error") { const cur = this.steps[this.steps.length - 1]; if (cur && !cur.endedAt) { cur.endedAt = now(); cur.outcome ??= outcome; } }
 
   async saveArtifact(name: string, mime: string, bytes: Uint8Array, kind: ArtifactRef["kind"] | "source"): Promise<ArtifactRef> {
-    const { putArtifact, getArtifactBytes } = await import("./artifact-store.server");
-    const driveId = await putArtifact(name, mime, bytes);
-    const id = crypto.randomUUID();
+    await this.checkCancel();
+    const { putArtifact, putD1Artifact, getArtifactBytes } = await import("./artifact-store.server");
     const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const identity = `${this.id}:${kind}:${name}:${hash}`;
+    const existing = await d1<any>("SELECT id, name, size FROM job_artifacts WHERE job_id = ? AND user_id = ? AND name = ? AND kind = ? AND sha256 = ?", [this.id, this.userId, name, kind, hash]);
+    if (existing[0]) return { id: existing[0].id, name: existing[0].name, size: existing[0].size, kind: kind === "source" ? "file" : kind };
+    const driveId = kind === "source" ? (await putD1Artifact(bytes)).key : await putArtifact(name, mime, bytes, identity, this.userId);
+    const id = crypto.randomUUID();
     // Verify before delivery: read the stored bytes back and compare size + hash, so a corrupt or
     // partial write fails the task honestly instead of handing the user a damaged file.
     try {
@@ -94,6 +98,10 @@ export class JobRun {
     }
     await d1("INSERT INTO job_artifacts (id, job_id, user_id, name, mime, size, sha256, drive_file_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [id, this.id, this.userId, name, mime, bytes.length, hash, driveId, kind, new Date(Date.now() + ARTIFACT_TTL_MS).toISOString(), now()]);
+    if (kind !== "source") {
+      const { markDriveIndexed } = await import("@/lib/cloud/drive.server");
+      await markDriveIndexed(identity);
+    }
     return { id, name, size: bytes.length, kind: kind === "source" ? "file" : kind };
   }
 }
@@ -184,5 +192,5 @@ export async function cleanupExpired(userId: string) {
   const rows = await d1<any>("SELECT id, drive_file_id FROM job_artifacts WHERE user_id = ? AND expires_at <= ? LIMIT 5", [userId, now()]);
   if (!rows.length) return;
   const { deleteArtifactBytes } = await import("./artifact-store.server");
-  for (const r of rows) { await deleteArtifactBytes(r.drive_file_id).catch(() => undefined); await d1("DELETE FROM job_artifacts WHERE id = ?", [r.id]); }
+  for (const r of rows) { await deleteArtifactBytes(r.drive_file_id); await d1("DELETE FROM job_artifacts WHERE id = ?", [r.id]); }
 }
