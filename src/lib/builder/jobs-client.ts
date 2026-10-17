@@ -48,7 +48,22 @@ export async function runJob(type: JobType, payload: { input?: unknown; file?: F
       res = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, type, input: payload.input, sessionId: payload.sessionId ?? undefined }), credentials: "include" });
     }
     const job: JobView = (await json(res)).job;
-    done = true; onUpdate(job); return job;
+    onUpdate(job);
+    // Slow tasks return while still running (the server finishes them in the background):
+    // keep polling until a terminal state instead of freezing on "running".
+    if (!isTerminal(job.status)) {
+      const deadline = Date.now() + 45 * 60_000;
+      let j: JobView | null = job;
+      while (j && !isTerminal(j.status) && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2000));
+        j = await fetchJob(id).catch(() => null);
+        if (j) onUpdate(j);
+      }
+      done = true;
+      return j ?? job;
+    }
+    done = true;
+    return job;
   } catch (e) {
     // The request may have been cut off while the job kept running; trust the stored state.
     const j = await fetchJob(id).catch(() => null);
@@ -67,8 +82,19 @@ export async function retryJob(id: string, onUpdate: (j: JobView) => void): Prom
   let done = false;
   void (async () => { while (!done) { await new Promise((r) => setTimeout(r, 1200)); const j = await fetchJob(newId).catch(() => null); if (j && !done) onUpdate(j); } })();
   try {
-    const job = (await json(await fetch(`/api/jobs/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "retry", newId }), credentials: "include" }))).job;
-    onUpdate(job); return job;
+    const job: JobView = (await json(await fetch(`/api/jobs/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "retry", newId }), credentials: "include" }))).job;
+    onUpdate(job);
+    if (!isTerminal(job.status)) {
+      const deadline = Date.now() + 45 * 60_000;
+      let j: JobView | null = job;
+      while (j && !isTerminal(j.status) && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2000));
+        j = await fetchJob(newId).catch(() => null);
+        if (j) onUpdate(j);
+      }
+      return j ?? job;
+    }
+    return job;
   } finally { done = true; }
 }
 

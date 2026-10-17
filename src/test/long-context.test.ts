@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ai/orchestrator.server", () => ({ orchestrateText: vi.fn(async (_m: unknown, opts: any) => ({ ok: true, text: "[]", sawSignal: opts.signal instanceof AbortSignal })) }));
 import { CATALOG_COLUMNS, catalogOutline, normalizeRecord, parseRecords, rowCountFor, validateCatalog, wantsWorkbook } from "@/lib/jobs/long-context";
-import { runPipeline, callOrchestrator } from "@/lib/jobs/long-context.server";
+import { runPipeline, callOrchestrator, withJobHeartbeat } from "@/lib/jobs/long-context.server";
 import { readXlsx, writeXlsx } from "@/lib/tools/office";
 import { routeRequest } from "@/lib/ai/request-route";
 
@@ -94,7 +94,7 @@ function fakeCall(seen: string[], failSections: number[] = []) {
     const [start, end, cat] = [Number(m[1]), Number(m[2]), m[3]];
     seen.push(`${start}-${end}`);
     if (failSections.includes(start)) return { ok: false as const, reason: "provider unavailable" };
-    const rows = []; for (let i = start; i <= end; i++) rows.push(fakeRecord(i, cat));
+    const rows: Record<string, unknown>[] = []; for (let i = start; i <= end; i++) rows.push(fakeRecord(i, cat));
     return { ok: true as const, text: JSON.stringify(rows) };
   };
 }
@@ -182,6 +182,27 @@ describe("orchestrator call", () => {
   it("always passes an AbortSignal (regression: jobs failed reading 'aborted')", async () => {
     const res: any = await callOrchestrator([{ role: "user", content: "hi" }], 100);
     expect(res.sawSignal).toBe(true);
+  });
+});
+
+describe("job heartbeat", () => {
+  it("refreshes the job while a long step runs and stops afterwards", async () => {
+    let touches = 0;
+    const job = { touch: vi.fn(async () => { touches++; }) };
+    const done = withJobHeartbeat(job as any, 5, async () => { await new Promise((r) => setTimeout(r, 60)); return "ok"; });
+    await expect(done).resolves.toBe("ok");
+    expect(touches).toBeGreaterThanOrEqual(2);
+    const at = touches;
+    await new Promise((r) => setTimeout(r, 30));
+    expect(touches).toBe(at);
+  });
+  it("stops the heartbeat even when the step throws", async () => {
+    let touches = 0;
+    const job = { touch: vi.fn(async () => { touches++; }) };
+    await expect(withJobHeartbeat(job as any, 5, async () => { await new Promise((r) => setTimeout(r, 30)); throw new Error("boom"); })).rejects.toThrow("boom");
+    const at = touches;
+    await new Promise((r) => setTimeout(r, 30));
+    expect(touches).toBe(at);
   });
 });
 

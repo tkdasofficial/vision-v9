@@ -47,7 +47,12 @@ export async function runPipeline(userId: string, requestId: string, prompt: str
     if (excel) outline = catalogOutline(totalRows);
     else {
       const { planOutline } = await import("@/lib/sandbox/runner.server");
-      outline = await planOutline(prompt, async (m, t) => call(m, t), new AbortController().signal);
+      // The sandbox runner's Call carries provider telemetry this pipeline does not produce;
+      // planOutline only reads ok/text, so the adapter is cast to its signature.
+      outline = await planOutline(prompt, (async (m: unknown[], t: number) => {
+        const r = await call(m, t);
+        return r.ok ? { ok: true, text: r.text ?? "" } : { ok: false, status: 502, reason: r.reason ?? "provider unavailable" };
+      }) as unknown as Parameters<typeof planOutline>[1], new AbortController().signal);
     }
     plan = gen.buildPlan(prompt, outline, excel ? { chunkTargetTokens: CATALOG_TOKENS } : {});
     await store.savePlan(userId, sjob.id, plan, db);
@@ -117,9 +122,18 @@ export async function runPipeline(userId: string, requestId: string, prompt: str
 /** Stale recovery fails a job with no update for 3 minutes; long provider calls need heartbeats. */
 export const JOB_HEARTBEAT_MS = 30_000;
 
-export async function runLongContext(job: JobRun, input: { prompt?: string }, heartbeatMs = JOB_HEARTBEAT_MS) {
+/** Runs `run` while refreshing the job's updated_at, so a live long job is never recovered as interrupted. */
+export async function withJobHeartbeat<T>(job: Pick<JobRun, "touch">, heartbeatMs: number, run: () => Promise<T>): Promise<T> {
   const heartbeat = setInterval(() => { job.touch().catch(() => undefined); }, heartbeatMs);
   try {
+    return await run();
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+export function runLongContext(job: JobRun, input: { prompt?: string }, heartbeatMs = JOB_HEARTBEAT_MS) {
+  return withJobHeartbeat(job, heartbeatMs, async () => {
     const prompt = input.prompt?.trim();
     if (!prompt) throw new Error("Describe what you want generated.");
     const { sandboxReady } = await import("@/lib/sandbox/db.server");
@@ -150,4 +164,5 @@ export async function runLongContext(job: JobRun, input: { prompt?: string }, he
   const { strToU8 } = await import("fflate");
   const art = await job.saveArtifact("generated-document.md", "text/markdown", strToU8(result.text ?? ""), "file");
   await job.finish({ prompt, fileName: "generated-document.md", chunks: result.chunks, artifactId: art.id });
+  });
 }
