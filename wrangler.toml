@@ -36,6 +36,13 @@ binding = "DB"
 database_name = "vision"
 database_id = "ded73090-4d47-45ac-952f-24ae2beaba5f"
 
+# vision-sandbox — temporary output-generation store for the Long Context
+# Generation system (jobs, plans, chunks, context, events, outputs).
+[[d1_databases]]
+binding = "SANDBOX_DB"
+database_name = "vision-sandbox"
+database_id = "4d8098d8-e148-46ea-9e79-b4d35c148c8f"
+
 # Gmail SMTP credentials from the account Secrets Store (used by POST /mail).
 [[secrets_store_secrets]]
 binding = "SMTP_EMAIL"
