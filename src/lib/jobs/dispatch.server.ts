@@ -23,6 +23,10 @@ export async function startJob(userId: string, id: string, type: JobType, input:
       const { startRuntimeJob } = await import("@/lib/runtime/runtime.server");
       await startRuntimeJob(job, { operation: input.operation, params: input.params, fileName: input.fileName, mime: input.mime, bytes });
     }
+    else if (type === "long_context") {
+      const { runLongContext } = await import("./long-context.server");
+      await runLongContext(job, input);
+    }
     else if (type === "agent_task") {
       const files: { name: string; mime: string; bytes: Uint8Array }[] = input.files ?? [];
       const sources: { id: string; name: string; mime: string }[] = input.sources ?? [];

@@ -5,6 +5,7 @@ import type { ChatMode } from "./modes";
 export type RequestRoute =
   | { kind: "chat" }
   | { kind: "tool" }
+  | { kind: "long_context" }
   | { kind: "project" }
   | { kind: "code_export"; language: string }
   | { kind: "file"; format: string };
