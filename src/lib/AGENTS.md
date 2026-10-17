@@ -29,3 +29,4 @@
 
 - Email verification uses 8-digit codes hashed in D1 `auth_otps`; delivery runs on the Cloudflare gateway Worker (`POST /mail`, Gmail SMTP with SMTP_EMAIL/SMTP_PASSWORD bound from the Cloudflare Secrets Store), and the app calls it with the shared MAIL_TOKEN. Why: mail credentials stay in Cloudflare; codes never stored in plain text.
 - Files use private Drive via `cloud/drive.server.ts`, canonical destinations in `drive-layout.ts`, app_config reservations and D1 indexes. Browser exports use `drive-export.ts`; admin-only `/api/storage/drive` initializes folders or migrates legacy artifacts in bounded batches. Why: finals share secure storage while runtime staging and owner-only downloads remain intact.
+- Subdirectories may have their own `AGENTS.md`; read `src/lib/sandbox/AGENTS.md` before changing the Long Context Generation store.

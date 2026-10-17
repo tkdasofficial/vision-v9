@@ -52,6 +52,7 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiChatStatusRouteImport } from './routes/api/chat-status'
 import { Route as ApiFilesRouteImport } from './routes/api/files'
 import { Route as ApiJobsRouteImport } from './routes/api/jobs'
+import { Route as ApiSandboxGenerationsRouteImport } from './routes/api/sandbox-generations'
 import { Route as AppSplatRouteImport } from './routes/app.$'
 import { Route as AuthForgetPasswordRouteImport } from './routes/auth.forget-password'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
@@ -98,6 +99,7 @@ import { Route as VideosVideoChatIdRouteImport } from './routes/videos.$videoCha
 import { Route as ApiArtifactsArtifactIdRouteImport } from './routes/api/artifacts.$artifactId'
 import { Route as ApiJobsJobIdRouteImport } from './routes/api/jobs.$jobId'
 import { Route as ApiOauthProviderRouteImport } from './routes/api/oauth.$provider'
+import { Route as ApiSandboxGenerationsJobIdRouteImport } from './routes/api/sandbox-generations.$jobId'
 import { Route as ApiStorageDriveRouteImport } from './routes/api/storage.drive'
 import { Route as AuthGithubCallbackRouteImport } from './routes/auth.github.callback'
 import { Route as AuthGithubStartRouteImport } from './routes/auth.github.start'
@@ -319,6 +321,11 @@ const ApiFilesRoute = ApiFilesRouteImport.update({
 const ApiJobsRoute = ApiJobsRouteImport.update({
   id: '/api/jobs',
   path: '/api/jobs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSandboxGenerationsRoute = ApiSandboxGenerationsRouteImport.update({
+  id: '/api/sandbox-generations',
+  path: '/api/sandbox-generations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppSplatRoute = AppSplatRouteImport.update({
@@ -552,6 +559,12 @@ const ApiOauthProviderRoute = ApiOauthProviderRouteImport.update({
   path: '/api/oauth/$provider',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSandboxGenerationsJobIdRoute =
+  ApiSandboxGenerationsJobIdRouteImport.update({
+    id: '/$jobId',
+    path: '/$jobId',
+    getParentRoute: () => ApiSandboxGenerationsRoute,
+  } as any)
 const ApiStorageDriveRoute = ApiStorageDriveRouteImport.update({
   id: '/api/storage/drive',
   path: '/api/storage/drive',
@@ -632,6 +645,7 @@ export interface FileRoutesByFullPath {
   '/api/chat-status': typeof ApiChatStatusRoute
   '/api/files': typeof ApiFilesRoute
   '/api/jobs': typeof ApiJobsRouteWithChildren
+  '/api/sandbox-generations': typeof ApiSandboxGenerationsRouteWithChildren
   '/app/$': typeof AppSplatRoute
   '/auth/forget-password': typeof AuthForgetPasswordRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -679,6 +693,7 @@ export interface FileRoutesByFullPath {
   '/api/artifacts/$artifactId': typeof ApiArtifactsArtifactIdRoute
   '/api/jobs/$jobId': typeof ApiJobsJobIdRoute
   '/api/oauth/$provider': typeof ApiOauthProviderRoute
+  '/api/sandbox-generations/$jobId': typeof ApiSandboxGenerationsJobIdRoute
   '/api/storage/drive': typeof ApiStorageDriveRoute
   '/auth/github/callback': typeof AuthGithubCallbackRoute
   '/auth/github/start': typeof AuthGithubStartRoute
@@ -727,6 +742,7 @@ export interface FileRoutesByTo {
   '/api/chat-status': typeof ApiChatStatusRoute
   '/api/files': typeof ApiFilesRoute
   '/api/jobs': typeof ApiJobsRouteWithChildren
+  '/api/sandbox-generations': typeof ApiSandboxGenerationsRouteWithChildren
   '/app/$': typeof AppSplatRoute
   '/auth/forget-password': typeof AuthForgetPasswordRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -774,6 +790,7 @@ export interface FileRoutesByTo {
   '/api/artifacts/$artifactId': typeof ApiArtifactsArtifactIdRoute
   '/api/jobs/$jobId': typeof ApiJobsJobIdRoute
   '/api/oauth/$provider': typeof ApiOauthProviderRoute
+  '/api/sandbox-generations/$jobId': typeof ApiSandboxGenerationsJobIdRoute
   '/api/storage/drive': typeof ApiStorageDriveRoute
   '/auth/github/callback': typeof AuthGithubCallbackRoute
   '/auth/github/start': typeof AuthGithubStartRoute
@@ -826,6 +843,7 @@ export interface FileRoutesById {
   '/api/chat-status': typeof ApiChatStatusRoute
   '/api/files': typeof ApiFilesRoute
   '/api/jobs': typeof ApiJobsRouteWithChildren
+  '/api/sandbox-generations': typeof ApiSandboxGenerationsRouteWithChildren
   '/app/$': typeof AppSplatRoute
   '/auth/forget-password': typeof AuthForgetPasswordRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -873,6 +891,7 @@ export interface FileRoutesById {
   '/api/artifacts/$artifactId': typeof ApiArtifactsArtifactIdRoute
   '/api/jobs/$jobId': typeof ApiJobsJobIdRoute
   '/api/oauth/$provider': typeof ApiOauthProviderRoute
+  '/api/sandbox-generations/$jobId': typeof ApiSandboxGenerationsJobIdRoute
   '/api/storage/drive': typeof ApiStorageDriveRoute
   '/auth/github/callback': typeof AuthGithubCallbackRoute
   '/auth/github/start': typeof AuthGithubStartRoute
@@ -926,6 +945,7 @@ export interface FileRouteTypes {
     | '/api/chat-status'
     | '/api/files'
     | '/api/jobs'
+    | '/api/sandbox-generations'
     | '/app/$'
     | '/auth/forget-password'
     | '/auth/forgot-password'
@@ -973,6 +993,7 @@ export interface FileRouteTypes {
     | '/api/artifacts/$artifactId'
     | '/api/jobs/$jobId'
     | '/api/oauth/$provider'
+    | '/api/sandbox-generations/$jobId'
     | '/api/storage/drive'
     | '/auth/github/callback'
     | '/auth/github/start'
@@ -1021,6 +1042,7 @@ export interface FileRouteTypes {
     | '/api/chat-status'
     | '/api/files'
     | '/api/jobs'
+    | '/api/sandbox-generations'
     | '/app/$'
     | '/auth/forget-password'
     | '/auth/forgot-password'
@@ -1068,6 +1090,7 @@ export interface FileRouteTypes {
     | '/api/artifacts/$artifactId'
     | '/api/jobs/$jobId'
     | '/api/oauth/$provider'
+    | '/api/sandbox-generations/$jobId'
     | '/api/storage/drive'
     | '/auth/github/callback'
     | '/auth/github/start'
@@ -1119,6 +1142,7 @@ export interface FileRouteTypes {
     | '/api/chat-status'
     | '/api/files'
     | '/api/jobs'
+    | '/api/sandbox-generations'
     | '/app/$'
     | '/auth/forget-password'
     | '/auth/forgot-password'
@@ -1166,6 +1190,7 @@ export interface FileRouteTypes {
     | '/api/artifacts/$artifactId'
     | '/api/jobs/$jobId'
     | '/api/oauth/$provider'
+    | '/api/sandbox-generations/$jobId'
     | '/api/storage/drive'
     | '/auth/github/callback'
     | '/auth/github/start'
@@ -1205,6 +1230,7 @@ export interface RootRouteChildren {
   ApiChatStatusRoute: typeof ApiChatStatusRoute
   ApiFilesRoute: typeof ApiFilesRoute
   ApiJobsRoute: typeof ApiJobsRouteWithChildren
+  ApiSandboxGenerationsRoute: typeof ApiSandboxGenerationsRouteWithChildren
   BillingPlansRoute: typeof BillingPlansRoute
   DocsSplatRoute: typeof DocsSplatRoute
   DocumentsDocIdRoute: typeof DocumentsDocIdRoute
@@ -1531,6 +1557,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiJobsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sandbox-generations': {
+      id: '/api/sandbox-generations'
+      path: '/api/sandbox-generations'
+      fullPath: '/api/sandbox-generations'
+      preLoaderRoute: typeof ApiSandboxGenerationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/$': {
       id: '/app/$'
       path: '/$'
@@ -1853,6 +1886,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthProviderRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sandbox-generations/$jobId': {
+      id: '/api/sandbox-generations/$jobId'
+      path: '/$jobId'
+      fullPath: '/api/sandbox-generations/$jobId'
+      preLoaderRoute: typeof ApiSandboxGenerationsJobIdRouteImport
+      parentRoute: typeof ApiSandboxGenerationsRoute
+    }
     '/api/storage/drive': {
       id: '/api/storage/drive'
       path: '/api/storage/drive'
@@ -2067,6 +2107,19 @@ const ApiJobsRouteChildren: ApiJobsRouteChildren = {
 const ApiJobsRouteWithChildren =
   ApiJobsRoute._addFileChildren(ApiJobsRouteChildren)
 
+interface ApiSandboxGenerationsRouteChildren {
+  ApiSandboxGenerationsJobIdRoute: typeof ApiSandboxGenerationsJobIdRoute
+}
+
+const ApiSandboxGenerationsRouteChildren: ApiSandboxGenerationsRouteChildren = {
+  ApiSandboxGenerationsJobIdRoute: ApiSandboxGenerationsJobIdRoute,
+}
+
+const ApiSandboxGenerationsRouteWithChildren =
+  ApiSandboxGenerationsRoute._addFileChildren(
+    ApiSandboxGenerationsRouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
@@ -2097,6 +2150,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatStatusRoute: ApiChatStatusRoute,
   ApiFilesRoute: ApiFilesRoute,
   ApiJobsRoute: ApiJobsRouteWithChildren,
+  ApiSandboxGenerationsRoute: ApiSandboxGenerationsRouteWithChildren,
   BillingPlansRoute: BillingPlansRoute,
   DocsSplatRoute: DocsSplatRoute,
   DocumentsDocIdRoute: DocumentsDocIdRoute,

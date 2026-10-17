@@ -24,7 +24,7 @@ export function buildPlan(instructions: string, outline: string[], opts: { chunk
   const chunks: ChunkSpec[] = (sections.length ? sections : ["Full response"]).map((title, i) => {
     const dependsOn: number[] = [];
     // Sequential dependency when the section explicitly builds on the previous one.
-    if (i > 0 && /^(continue|then|next|finally|in conclusion|therefore)\b/i.test(title)) dependsOn.push(i);
+    if (i > 0 && /^(continue|then|next|finally|in conclusion|therefore)\b/i.test(title)) dependsOn.push(i - 1);
     return {
       seq: i,
       sectionId: `s${i}`,
