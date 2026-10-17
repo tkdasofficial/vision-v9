@@ -315,6 +315,8 @@ const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false 
       ) : (
         <div className="group relative w-full">
           <div className="space-y-3">
+            {/* Finished-task summary ("Worked for Ns") sits above the results, expandable to the real steps. */}
+            {message.activity && typingDone && <ActivityRow activity={message.activity} />}
             {message.imageUrl && (
               <img
                 src={message.imageUrl}
@@ -362,7 +364,6 @@ const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false 
             {message.generatedFile && (
               <FileCreatorCard file={message.generatedFile} />
             )}
-            {message.activity && typingDone && <ActivityRow activity={message.activity} />}
             {/* Action bar */}
             {message.content && typingDone && (!message.deep || message.deep.stage === "done") && (
               <div className="flex items-center gap-0.5 pt-1">
@@ -430,18 +431,10 @@ const DEEP_LABELS: Record<DeepStage, string> = {
   retrying: "Retrying", switching_provider: "Working on it",
 };
 
-const DeepStatusCard = ({ stage, seconds, since, detail }: { stage: DeepStage; seconds?: number; since: Date; detail?: string }) => {
+const DeepStatusCard = ({ stage, seconds, detail }: { stage: DeepStage; seconds?: number; detail?: string }) => {
   const live = stage !== "done" && stage !== "failed";
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    if (!live) return;
-    const start = new Date(since).getTime();
-    const tick = () => setElapsed(Math.max(0, Math.round((Date.now() - start) / 1000)));
-    tick();
-    const t = window.setInterval(tick, 1000);
-    return () => window.clearInterval(t);
-  }, [live, since]);
-  const secs = live ? elapsed : seconds;
+  // Elapsed time is never shown while working — only the "thought for Ns" note once done.
+  const secs = live ? undefined : seconds;
   return (
     <div role="status" aria-live="polite" className="flex h-16 w-full items-center gap-2 rounded-lg border border-border bg-muted/60 px-3 text-xs">
       {live ? <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
@@ -450,7 +443,6 @@ const DeepStatusCard = ({ stage, seconds, since, detail }: { stage: DeepStage; s
       <span key={stage} className="min-w-0 break-words font-medium text-foreground animate-fade-in">
         {DEEP_LABELS[stage]}{live && detail && stage !== "switching_provider" ? ` · ${detail}` : ""}{live ? "…" : stage === "done" && secs ? ` · thought for ${secs}s` : ""}
       </span>
-      {live && secs !== undefined && <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">{secs}s</span>}
     </div>
   );
 };
@@ -485,7 +477,7 @@ const DeepReplyContent = ({ message, deep }: { message: ChatMessageType; deep: N
       <p className="text-sm text-muted-foreground">
         {done ? "Here's what I worked out." : stage === "failed" ? "I couldn't finish this one." : "I'm working on it — thinking it through and checking the result before I answer."}
       </p>
-      <DeepStatusCard stage={stage} seconds={deep.seconds} since={message.timestamp} detail={deep.detail} />
+      <DeepStatusCard stage={stage} seconds={deep.seconds} detail={deep.detail} />
       {(done || stage === "failed") && message.content && (
         <article className="animate-fade-in pt-2">
           {title && <h2 className="font-display text-2xl sm:text-[28px] font-bold leading-tight tracking-tight text-foreground py-4">{title}</h2>}
