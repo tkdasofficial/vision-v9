@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ai/orchestrator.server", () => ({ orchestrateText: vi.fn(async (_m: unknown, opts: any) => ({ ok: true, text: "[]", sawSignal: opts.signal instanceof AbortSignal })) }));
 import { CATALOG_COLUMNS, catalogOutline, normalizeRecord, parseRecords, rowCountFor, validateCatalog, wantsWorkbook } from "@/lib/jobs/long-context";
-import { runPipeline } from "@/lib/jobs/long-context.server";
+import { runPipeline, callOrchestrator } from "@/lib/jobs/long-context.server";
 import { readXlsx, writeXlsx } from "@/lib/tools/office";
 import { routeRequest } from "@/lib/ai/request-route";
 
@@ -175,6 +175,13 @@ describe("chat routing", () => {
   });
   it("leaves small spreadsheet requests on the regular file path", () => {
     expect(routeRequest("make an excel of my expenses")).toEqual({ kind: "tool" });
+  });
+});
+
+describe("orchestrator call", () => {
+  it("always passes an AbortSignal (regression: jobs failed reading 'aborted')", async () => {
+    const res: any = await callOrchestrator([{ role: "user", content: "hi" }], 100);
+    expect(res.sawSignal).toBe(true);
   });
 });
 
