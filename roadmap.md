@@ -1,5 +1,10 @@
 # Roadmap — Memory, Output Control, Artifacts & Activity Tracking
 
+## Current request — File-only delivery
+- [ ] Default all file creation/transformation replies to file delivery without in-file content.
+- [ ] Show requested contents underneath the delivered file only on explicit opt-in.
+- [ ] Run delivery regression tests and full suite; verify the delivery flow.
+
 Spec: user-uploaded VISION memory/output/artifact/activity integration doc (5 tasks, sequential gates).
 
 - [x] Task 1 — Memory integration (chat / permanent / project scopes) + tests
