@@ -18,7 +18,7 @@ export default function TaskStatus({ label, startedAt, endedAt, failed = false, 
     const dotsTimer = window.setInterval(() => setDots((prev) => (prev + 1) % 4), 400);
     return () => { window.clearInterval(dotsTimer); };
   }, [live]);
-  const seconds = Math.max(0, Math.round((Date.parse(endedAt ?? "") - new Date(startedAt).getTime()) / 1000));
+  const seconds = Math.max(0, Math.round(((endedAt ? Date.parse(endedAt) : NaN) - new Date(startedAt).getTime()) / 1000)) || 0;
   const text = failed ? "Couldn't finish" : cancelled ? "Cancelled" : label;
   return (
     <div role="status" aria-live="polite" className="flex w-full items-baseline gap-2 py-1 text-sm text-muted-foreground">
