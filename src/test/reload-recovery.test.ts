@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 vi.mock("@/lib/ai/runtime-env.server", () => ({ getD1Binding: () => null, getAiBinding: () => null, getSecret: () => undefined }));
 import { trackGeneration, latestGeneration } from "@/lib/ai/generation-store.server";
-import { viewGeneration, generationTaskState, endedWithoutAnswer, STALE_AFTER_MS, type GenerationRow } from "@/lib/ai/generation-state";
+import { viewGeneration, generationTaskState, endedWithoutAnswer, questionAnsweredByJob, STALE_AFTER_MS, type GenerationRow } from "@/lib/ai/generation-state";
 import { detachFromClient } from "@/lib/cloud/api-proxy.server";
 
 // In-memory stand-in for the chat_generations table.
@@ -65,6 +65,14 @@ describe("reload during generation", () => {
     const v = viewGeneration(row, 1000 + STALE_AFTER_MS + 1);
     expect(v.status).toBe("interrupted");
     expect(endedWithoutAnswer(v)).toMatch(/interrupted/);
+  });
+
+  it("a question answered by a file-creation job ends the reconnect poller instead of showing Thinking for 15 minutes", () => {
+    const sentAt = Date.parse("2026-10-17T04:00:23.000Z");
+    expect(questionAnsweredByJob([{ createdAt: "2026-10-17T04:00:23.500Z" }], sentAt)).toBe(true);
+    expect(questionAnsweredByJob([{ createdAt: "2026-10-17T03:59:00.000Z" }], sentAt)).toBe(false); // older task from a previous question
+    expect(questionAnsweredByJob([], sentAt)).toBe(false); // written-answer question keeps the generation reconnect
+    expect(questionAnsweredByJob([{ createdAt: "not-a-date" }], sentAt)).toBe(false);
   });
 
   it("storage failures never break the generation", async () => {

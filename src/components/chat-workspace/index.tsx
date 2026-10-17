@@ -29,6 +29,7 @@ import { saveDocumentFn } from "@/lib/cloud/documents.functions";
 import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
 import { supabase } from "@/lib/cloud/client";
 import { streamChat, fetchGeneration } from "@/lib/cloud/chat-stream";
+import { questionAnsweredByJob } from "@/lib/ai/generation-state";
 import { generationTaskState, endedWithoutAnswer } from "@/lib/ai/generation-state";
 import { useAuth } from "@/context/AuthContext";
 import { readCachedPrefs } from "@/lib/settings";
@@ -163,6 +164,11 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         setNewMessageIds((prev) => new Set(prev).add(row.id));
         return;
       }
+      // A question routed to a backend job (file creation, conversion) is answered by the job card,
+      // never by a chat_messages row: stop the "Thinking" indicator instead of polling for 15 minutes.
+      const jobs = await listJobs(chatId).catch(() => [] as Awaited<ReturnType<typeof listJobs>>);
+      if (stop) return;
+      if (questionAnsweredByJob(jobs, sentAt)) { finish(); return; }
       // Reconnect to the server's record of this generation: live status while it runs, a clear end if it stopped.
       const gen = await fetchGeneration(chatId).catch(() => null);
       if (stop) return;
