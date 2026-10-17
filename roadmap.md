@@ -1,13 +1,19 @@
 # Roadmap — Memory, Output Control, Artifacts & Activity Tracking
 
+## Current request — File-only delivery
+- [x] Default all file creation/transformation replies to file delivery without in-file content.
+- [x] Show requested contents underneath the delivered file only on explicit opt-in.
+- [x] Run delivery regression tests and full suite; verify file/download rendering through automated tests.
+- [ ] Signed-in preview file-generation check — blocked: available test-account sign-in returned to login; no file request ran.
+
 Spec: user-uploaded VISION memory/output/artifact/activity integration doc (5 tasks, sequential gates).
 
 - [x] Task 1 — Memory integration (chat / permanent / project scopes) + tests
 - [x] Task 2 — Output control & response discipline + tests
 - [x] Task 3 — Artifact execution & delivery + tests
 - [x] Task 4 — Deep-task status & activity history (Title Case labels, collapsed "Worked for Ns") + tests
-- [ ] Task 5 — Integrated regression suite + real-user E2E with screenshots
-- [ ] Final report
+- [x] Task 5 — Integrated regression suite + real-user E2E with screenshots (completed in earlier turns)
+- [x] Final report (completed in earlier turns)
 
 ## Task 5 — Real-user verification (final report)
 - Login, signup + email verification (MAIL_TOKEN fixed both sides): OK.

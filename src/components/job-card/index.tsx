@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import TaskStatus from "@/components/task-status";
 import { visibleJobStatus } from "@/lib/status-visibility";
 import { workStateForJob, workStateLabel } from "@/lib/ai/work-status";
+import { canShowJobContents } from "@/lib/builder/file-delivery";
 
 /** Downloads through an authenticated fetch so the session always reaches the server. */
 function ArtifactButton({ id, name, size }: { id: string; name: string; size?: string }) {
@@ -72,18 +73,22 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
   const stageLabel = workStateLabel(workStateForJob(visible.status)) ?? JOB_STATUSES[visible.status];
   const statusLine = <TaskStatus label={stageLabel} startedAt={job.createdAt} endedAt={running ? undefined : job.updatedAt} failed={job.status === "failed" || job.status === "timed_out"} cancelled={job.status === "cancelled"} />;
   const r = job.result ?? {};
-  // Finished code shows only the clean code canvas — no title, badge, icons or menu.
-  if (job.type === "code_export" && r.content && (job.status === "completed" || job.status === "completed_with_warnings")) {
-    return <CodeBlock code={r.content} language={r.language} filename={r.fileName} />;
+  const showContents = canShowJobContents(job);
+  // File deliveries never expose their contents unless the request opted in.
+  if (job.type === "code_export" && (job.status === "completed" || job.status === "completed_with_warnings")) {
+    return <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">{job.artifacts.map((a) => <ArtifactButton key={a.id} id={a.id} name={a.name} />)}</div>
+      {showContents && r.content && <CodeBlock code={r.content} language={r.language} filename={r.fileName} />}
+    </div>;
   }
   // Finished tasks show only their result — no title, status words, step list or tick.
   if (job.type === "agent_task" && job.status === "completed" && (r.answer || r.steps?.length)) {
     const last = r.steps?.length ? r.steps[r.steps.length - 1] : null;
     return (
       <div className="space-y-3">
-        {r.steps?.map((s: any, i: number) => s.preview?.kind === "svg" && <img key={i} src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(s.preview.content)}`} alt="" className="max-h-96 w-full rounded-xl border border-border bg-background object-contain" />)}
+        {showContents && r.steps?.map((s: any, i: number) => s.preview?.kind === "svg" && <img key={i} src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(s.preview.content)}`} alt="" className="max-h-96 w-full rounded-xl border border-border bg-background object-contain" />)}
         {job.artifacts.length > 0 && <div className="flex flex-wrap gap-2">{job.artifacts.map((a) => <ArtifactButton key={a.id} id={a.id} name={a.name} />)}</div>}
-        <CleanText text={last ? (last.preview?.kind === "markdown" ? last.preview.content : last.text ?? "") : r.answer} />
+        {showContents && <CleanText text={r.displayText ?? (last ? (last.preview?.kind === "markdown" ? last.preview.content : last.text ?? "") : r.answer ?? "")} />}
       </div>
     );
   }
@@ -130,13 +135,14 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
       )}
       {job.type === "agent_task" && (r.answer || r.steps?.length) && (
         <div className="mt-3 space-y-3">
-          {r.answer && !r.steps?.length && <div className="prose prose-sm max-w-none text-foreground dark:prose-invert"><ReactMarkdown remarkPlugins={[remarkGfm]}>{r.answer}</ReactMarkdown></div>}
+          {showContents && r.displayText && <CleanText text={r.displayText} />}
+          {showContents && r.answer && !r.steps?.length && <div className="prose prose-sm max-w-none text-foreground dark:prose-invert"><ReactMarkdown remarkPlugins={[remarkGfm]}>{r.answer}</ReactMarkdown></div>}
           {r.steps?.map((s: any, i: number) => (
             <div key={i} className="space-y-2">
               {r.steps.length > 1 && <p className="text-xs font-medium text-muted-foreground">{i + 1}. {s.category} · {s.tool}</p>}
               {s.error && <p className="text-xs text-destructive">{s.error}</p>}
-              {s.preview?.kind === "svg" && <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(s.preview.content)}`} alt={`${s.tool} result`} className="max-h-96 w-full rounded-xl border border-border bg-background object-contain" />}
-              {s.text && (i === r.steps.length - 1 || s.preview?.kind !== "markdown") && (
+              {showContents && s.preview?.kind === "svg" && <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(s.preview.content)}`} alt={`${s.tool} result`} className="max-h-96 w-full rounded-xl border border-border bg-background object-contain" />}
+              {showContents && !r.displayText && s.text && (i === r.steps.length - 1 || s.preview?.kind !== "markdown") && (
                 <div className="prose prose-sm max-h-[28rem] max-w-none overflow-auto rounded-xl bg-muted p-3 text-foreground dark:prose-invert"><ReactMarkdown remarkPlugins={[remarkGfm]}>{(s.preview?.kind === "markdown" ? s.preview.content : s.text).slice(0, 20000)}</ReactMarkdown></div>
               )}
             </div>
@@ -170,11 +176,11 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
                     <span className="truncate"><FileCode2 className="mr-1 inline h-3 w-3" />{f.path}</span><span className="shrink-0 text-muted-foreground">{fmt(f.size)}</span>
                   </button>
                 </li>))}</ul>
-              {viewing && (() => { const file = r.webApp?.files?.find((x: any) => x.path === viewing); return <pre className="mt-2 max-h-80 overflow-auto rounded-xl bg-muted p-3 text-xs"><code>{file ? file.content : "Loading file…"}</code></pre>; })()}
+              {(viewing || showContents) && (() => { const files = r.webApp?.files ?? []; const selected = viewing ? files.filter((x: any) => x.path === viewing) : files; return selected.map((file: any) => <pre key={file.path} className="mt-2 max-h-80 overflow-auto rounded-xl bg-muted p-3 text-xs"><code>{file.content}</code></pre>); })()}
               {r.validation && <p className="mt-2 text-xs text-muted-foreground">Checked: {r.validation.checked.join(", ")}. Not checked: {r.validation.notChecked.join("; ")}.</p>}
             </div>
           )}
-          {job.type === "code_export" && r.content && (
+          {job.type === "code_export" && showContents && r.content && (
             <pre className="max-h-72 overflow-auto rounded-xl bg-muted p-3 text-xs"><code>{r.content}</code></pre>
           )}
           {job.type === "zip_analyze" && r.analysis && (
