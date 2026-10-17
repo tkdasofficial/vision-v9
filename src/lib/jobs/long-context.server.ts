@@ -114,19 +114,24 @@ export async function runPipeline(userId: string, requestId: string, prompt: str
   return { sandboxJobId: sjob.id, chunks: plan.chunks.length, rows };
 }
 
-export async function runLongContext(job: JobRun, input: { prompt?: string }) {
-  const prompt = input.prompt?.trim();
-  if (!prompt) throw new Error("Describe what you want generated.");
-  const { sandboxReady } = await import("@/lib/sandbox/db.server");
-  if (!sandboxReady()) throw new Error("The long-context store is unavailable.");
-  const excel = wantsWorkbook(prompt);
+/** Stale recovery fails a job with no update for 3 minutes; long provider calls need heartbeats. */
+export const JOB_HEARTBEAT_MS = 30_000;
 
-  await job.step("planning", excel ? "Planning the record batches" : "Planning the sections");
-  let result: PipelineResult;
-  await job.step("generating", excel ? `Generating ${rowCountFor(prompt)} records in batches` : "Generating sections");
-  result = await runPipeline(job.userId, job.id, prompt, {
-    onProgress: async (done, total) => { await job.note(`Generated ${done} of ${total} sections`, total ? done / total : null); },
-  });
+export async function runLongContext(job: JobRun, input: { prompt?: string }, heartbeatMs = JOB_HEARTBEAT_MS) {
+  const heartbeat = setInterval(() => { job.touch().catch(() => undefined); }, heartbeatMs);
+  try {
+    const prompt = input.prompt?.trim();
+    if (!prompt) throw new Error("Describe what you want generated.");
+    const { sandboxReady } = await import("@/lib/sandbox/db.server");
+    if (!sandboxReady()) throw new Error("The long-context store is unavailable.");
+    const excel = wantsWorkbook(prompt);
+
+    await job.step("planning", excel ? "Planning the record batches" : "Planning the sections");
+    let result: PipelineResult;
+    await job.step("generating", excel ? `Generating ${rowCountFor(prompt)} records in batches` : "Generating sections");
+    result = await runPipeline(job.userId, job.id, prompt, {
+      onProgress: async (done, total) => { await job.note(`Generated ${done} of ${total} sections`, total ? done / total : null); },
+    });
 
   await job.step("validating", excel ? "Validating every record" : "Validating the assembled output");
   if (excel && result.rows) {
