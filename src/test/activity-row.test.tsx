@@ -22,4 +22,10 @@ describe("activity row", () => {
     render(<ChatMessage message={base} />);
     expect(screen.queryByText(/Worked for/)).toBeNull();
   });
+  it("sits above the reply text, not below it", () => {
+    const { container } = render(<ChatMessage message={{ ...base, activity: { seconds: 12, steps: ["Thinking"] } }} />);
+    const row = screen.getByText("Worked for 12s").closest("div")!;
+    const reply = screen.getByText("Here is your answer.");
+    expect(row.compareDocumentPosition(reply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
