@@ -10,6 +10,10 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
+# Long-running generation tasks (multi-minute provider calls) need headroom over the default.
+[limits]
+cpu_ms = 300000
+
 # Build output (run `bun run build` first): server entry + static client assets.
 main = "dist/server/index.js"
 
