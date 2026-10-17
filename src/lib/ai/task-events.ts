@@ -5,15 +5,30 @@ export type TaskStage =
   | "searching_web" | "reading_sources" | "gathering_information" | "comparing_sources" | "fact_checking" | "extracting_information"
   | "processing" | "analyzing_files" | "processing_data" | "calculating" | "executing_code" | "running_tests" | "generating_file" | "converting_file"
   | "reviewing_answer" | "verifying_accuracy" | "checking_completeness" | "validating_requirements" | "detecting_issues" | "fixing_issues" | "retrying"
-  | "building_output" | "preparing_output" | "finalizing" | "switching_provider" | "failed" | "cancelled";
+  | "building_output" | "preparing_output" | "finalizing" | "switching_provider" | "failed" | "cancelled"
+  // Extended registry: each maps to one real operation and is emitted only while that operation runs.
+  | "remembering" | "saving_memory" | "updating_memory" | "deleting_memory"
+  | "fetching" | "finding" | "browsing" | "deep_thinking"
+  | "working" | "editing" | "drafting" | "redrafting" | "summarizing" | "translating" | "reviewing"
+  | "organizing" | "crafting" | "designing" | "formatting"
+  | "importing" | "saving" | "updating" | "deleting" | "compressing"
+  | "initializing" | "debugging" | "optimizing" | "refactoring" | "cleaning" | "querying"
+  | "calling_tool" | "waiting_for_input" | "unavailable" | "skipped" | "blocked" | "queued";
 
 /** The standard catalogue. Available labels, not a sequence: the server emits only those it actually performs. */
 export const STAGE_LABELS: Record<TaskStage, string> = {
   thinking: "Thinking", retrieving_context: "Retrieving Context", planning: "Planning", writing: "Writing", understanding_request: "Understanding Request", analyzing_requirements: "Analyzing Requirements", reasoning: "Reasoning",
-  searching_web: "Searching the Web", reading_sources: "Reading Sources", gathering_information: "Gathering Information", comparing_sources: "Comparing Sources", fact_checking: "Fact-Checking", extracting_information: "Extracting Information",
+  searching_web: "Searching", reading_sources: "Reading Sources", gathering_information: "Gathering Information", comparing_sources: "Comparing Sources", fact_checking: "Fact-Checking", extracting_information: "Extracting Information",
   processing: "Processing", analyzing_files: "Analyzing Files", processing_data: "Processing Data", calculating: "Calculating", executing_code: "Executing Code", running_tests: "Running Tests", generating_file: "Generating File", converting_file: "Converting File",
   reviewing_answer: "Reviewing Answer", verifying_accuracy: "Verifying Accuracy", checking_completeness: "Checking Completeness", validating_requirements: "Validating Requirements", detecting_issues: "Detecting Issues", fixing_issues: "Fixing Issues", retrying: "Retrying",
   building_output: "Building Output", preparing_output: "Preparing Output", finalizing: "Finalizing", switching_provider: "Switching AI provider", failed: "Failed", cancelled: "Cancelled",
+  remembering: "Remembering", saving_memory: "Saving Memory", updating_memory: "Updating Memory", deleting_memory: "Deleting Memory",
+  fetching: "Fetching", finding: "Finding", browsing: "Browsing", deep_thinking: "Deep Thinking",
+  working: "Working", editing: "Editing", drafting: "Drafting", redrafting: "Redrafting", summarizing: "Summarizing", translating: "Translating", reviewing: "Reviewing",
+  organizing: "Organizing", crafting: "Crafting", designing: "Designing", formatting: "Formatting",
+  importing: "Importing", saving: "Saving", updating: "Updating", deleting: "Deleting", compressing: "Compressing",
+  initializing: "Initializing", debugging: "Debugging", optimizing: "Optimizing", refactoring: "Refactoring", cleaning: "Cleaning", querying: "Query",
+  calling_tool: "Calling Tool", waiting_for_input: "Waiting for Input", unavailable: "Unavailable", skipped: "Skipped", blocked: "Blocked", queued: "Queued",
 };
 
 export type TaskEvent = { taskId: string; seq: number; stage: TaskStage; message?: string; ts: number; meta?: Record<string, number | string> };
