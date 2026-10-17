@@ -65,6 +65,13 @@ export async function startJob(userId: string, id: string, type: JobType, input:
     console.error("[jobs]", type, safeError(e));
     await job.fail(e);
   }
+  })();
+  // Long tasks outlive any request: the work keeps running after the response is sent and the
+  // browser keeps polling /api/jobs/$jobId, so a cut connection can never kill a live task.
+  const { keepAlive } = await import("./chat-background.server");
+  keepAlive(run);
+  const quick = await Promise.race([run.then(() => "done" as const), new Promise<"running" ((r) => setTimeout(() => r("running"), 20_000))]);
+  void quick;
   return getJob(userId, id);
 }
 
